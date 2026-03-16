@@ -1,0 +1,159 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Figtree:wght@300;400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Deep black Indian night palette */
+    --background: 0.08 0.005 0;
+    --foreground: 0.93 0.01 0;
+
+    --card: 0.12 0.005 0;
+    --card-foreground: 0.93 0.01 0;
+
+    --popover: 0.12 0.005 0;
+    --popover-foreground: 0.93 0.01 0;
+
+    /* Herb green primary */
+    --primary: 0.55 0.18 142;
+    --primary-foreground: 0.98 0 0;
+
+    --secondary: 0.18 0.01 0;
+    --secondary-foreground: 0.8 0.01 0;
+
+    --muted: 0.18 0.01 0;
+    --muted-foreground: 0.55 0.01 0;
+
+    --accent: 0.2 0.02 0;
+    --accent-foreground: 0.9 0.01 0;
+
+    /* Crimson red */
+    --destructive: 0.55 0.22 25;
+    --destructive-foreground: 0.98 0 0;
+
+    --border: 0.2 0.01 0;
+    --input: 0.2 0.01 0;
+    --ring: 0.55 0.18 142;
+    --radius: 0.75rem;
+
+    --chart-1: 0.55 0.18 142;
+    --chart-2: 0.55 0.22 25;
+    --chart-3: 0.65 0.18 48;
+    --chart-4: 0.75 0.14 80;
+    --chart-5: 0.45 0.12 280;
+
+    --sidebar: 0.1 0.005 0;
+    --sidebar-foreground: 0.93 0.01 0;
+    --sidebar-primary: 0.55 0.18 142;
+    --sidebar-primary-foreground: 0.98 0 0;
+    --sidebar-accent: 0.18 0.01 0;
+    --sidebar-accent-foreground: 0.8 0.01 0;
+    --sidebar-border: 0.2 0.01 0;
+    --sidebar-ring: 0.55 0.18 142;
+
+    /* Custom recipe app tokens */
+    --saffron: 0.65 0.18 55;
+    --saffron-deep: 0.55 0.2 45;
+    --turmeric: 0.72 0.16 80;
+    --spice-red: 0.55 0.22 25;
+    --herb-green: 0.55 0.18 142;
+    --cream: 0.93 0.01 0;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Figtree", sans-serif;
+    background-color: oklch(0.08 0.005 0);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: "Fraunces", serif;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: "Fraunces", serif;
+  }
+
+  .font-body {
+    font-family: "Figtree", sans-serif;
+  }
+
+  .text-saffron {
+    color: oklch(var(--saffron));
+  }
+
+  .bg-saffron {
+    background-color: oklch(var(--saffron));
+  }
+
+  .bg-saffron-deep {
+    background-color: oklch(var(--saffron-deep));
+  }
+
+  .gradient-saffron {
+    background: linear-gradient(
+      135deg,
+      oklch(0.3 0.08 142) 0%,
+      oklch(0.2 0.06 142) 40%,
+      oklch(0.15 0.04 142) 100%
+    );
+  }
+
+  .gradient-hero {
+    background: linear-gradient(
+      135deg,
+      oklch(0.08 0.005 0) 0%,
+      oklch(0.12 0.02 142) 35%,
+      oklch(0.1 0.03 142) 65%,
+      oklch(0.08 0.005 0) 100%
+    );
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-4px) scale(1.01);
+    @apply shadow-xl;
+  }
+
+  .spice-pattern {
+    background-image: radial-gradient(
+        circle at 20% 50%,
+        oklch(0.55 0.18 142 / 0.08) 0%,
+        transparent 50%
+      ),
+      radial-gradient(
+        circle at 80% 20%,
+        oklch(0.55 0.22 25 / 0.06) 0%,
+        transparent 50%
+      ),
+      radial-gradient(
+        circle at 60% 80%,
+        oklch(0.55 0.18 142 / 0.05) 0%,
+        transparent 40%
+      );
+  }
+
+  .star-filled {
+    color: oklch(var(--turmeric));
+  }
+
+  .star-empty {
+    color: oklch(0.3 0.01 0);
+  }
+}

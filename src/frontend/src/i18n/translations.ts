@@ -71,7 +71,22 @@ export type TranslationKey =
   | "fridge.no_results"
   | "fridge.match_label"
   | "fridge.clear"
-  | "fridge.add";
+  | "fridge.add"
+  | "fridge.tab.smart_match"
+  | "fridge.tab.ai_chef"
+  | "fridge.ai.api_key_prompt"
+  | "fridge.ai.placeholder"
+  | "fridge.ai.get_key"
+  | "fridge.ai.no_key_msg"
+  | "fridge.ai.clear_chat"
+  | "fridge.ai.save_key"
+  | "fridge.ai.change_key"
+  | "fridge.ai.send"
+  | "fridge.ai.error"
+  | "voice.button_on"
+  | "voice.button_off"
+  | "voice.listening"
+  | "voice.step_prefix";
 
 type Translations = Record<TranslationKey, string>;
 
@@ -149,6 +164,22 @@ const english: Translations = {
   "fridge.match_label": "match",
   "fridge.clear": "Clear All",
   "fridge.add": "Add",
+  "fridge.tab.smart_match": "Smart Match",
+  "fridge.tab.ai_chef": "AI Chef",
+  "fridge.ai.api_key_prompt": "Enter Gemini API Key (free!)",
+  "fridge.ai.placeholder": "Tell me what ingredients you have...",
+  "fridge.ai.get_key": "Get free key →",
+  "fridge.ai.no_key_msg":
+    "Add your Gemini API key above to start chatting with AI Chef!",
+  "fridge.ai.clear_chat": "Clear Chat",
+  "fridge.ai.save_key": "Save",
+  "fridge.ai.change_key": "Change",
+  "fridge.ai.send": "Send",
+  "fridge.ai.error": "Something went wrong. Please try again.",
+  "voice.button_on": "Voice Mode",
+  "voice.button_off": "Stop Voice",
+  "voice.listening": "Listening...",
+  "voice.step_prefix": "Step",
 };
 
 const hindi: Translations = {
@@ -223,6 +254,21 @@ const hindi: Translations = {
   "fridge.match_label": "मिलान",
   "fridge.clear": "सब हटाएं",
   "fridge.add": "जोड़ें",
+  "fridge.tab.smart_match": "Smart Match",
+  "fridge.tab.ai_chef": "AI रसोइया",
+  "fridge.ai.api_key_prompt": "Gemini API Key डालें (free!)",
+  "fridge.ai.placeholder": "बताओ आपके पास क्या है...",
+  "fridge.ai.get_key": "Free key lo →",
+  "fridge.ai.no_key_msg": "AI Chef से बात करने के लिए ऊपर Gemini API key डालें!",
+  "fridge.ai.clear_chat": "Chat हटाएं",
+  "fridge.ai.save_key": "Save",
+  "fridge.ai.change_key": "बदलें",
+  "fridge.ai.send": "भेजें",
+  "fridge.ai.error": "कुछ गलत हो गया। कृपया दोबारा कोशिश करें।",
+  "voice.button_on": "वॉइस मोड",
+  "voice.button_off": "वॉइस बंद",
+  "voice.listening": "सुन रहा हूँ...",
+  "voice.step_prefix": "चरण",
 };
 
 const hinglish: Translations = {
@@ -298,6 +344,22 @@ const hinglish: Translations = {
   "fridge.match_label": "match",
   "fridge.clear": "Sab Hatao",
   "fridge.add": "Add Karo",
+  "fridge.tab.smart_match": "Smart Match",
+  "fridge.tab.ai_chef": "AI Chef",
+  "fridge.ai.api_key_prompt": "Gemini API Key dalo (free hai!)",
+  "fridge.ai.placeholder": "Batao aapke paas kya hai...",
+  "fridge.ai.get_key": "Free key lo →",
+  "fridge.ai.no_key_msg":
+    "AI Chef se baat karne ke liye upar Gemini API key dalo!",
+  "fridge.ai.clear_chat": "Chat Clear Karo",
+  "fridge.ai.save_key": "Save",
+  "fridge.ai.change_key": "Change",
+  "fridge.ai.send": "Bhejo",
+  "fridge.ai.error": "Kuch galat ho gaya. Dobara try karo.",
+  "voice.button_on": "Voice Mode",
+  "voice.button_off": "Stop Voice",
+  "voice.listening": "Sun raha hoon...",
+  "voice.step_prefix": "Step",
 };
 
 export const translations: Record<Language, Translations> = {

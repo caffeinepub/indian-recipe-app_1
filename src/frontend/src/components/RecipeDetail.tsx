@@ -10,16 +10,19 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Recipe } from "@/data/recipes";
 import { useShoppingList } from "@/hooks/useShoppingList";
+import { toHinglish, toHinglishList } from "@/utils/hinglishConverter";
 import {
   ChefHat,
   Clock,
+  Mic,
+  MicOff,
   Minus,
   Plus,
   ShoppingCart,
   Users,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 interface RecipeDetailProps {
@@ -31,7 +34,6 @@ interface RecipeDetailProps {
 function extractLeadingNumber(str: string): number | null {
   const match = str.match(/^(\d+(?:\.\d+)?(?:\/\d+)?)/);
   if (!match) return null;
-  // handle fractions like "1/2"
   if (match[1].includes("/")) {
     const [num, den] = match[1].split("/").map(Number);
     return num / den;
@@ -59,21 +61,81 @@ function parseServingCount(servingSize: string): number {
   return match ? Number.parseInt(match[1], 10) : 4;
 }
 
+// Extend window type for SpeechRecognition
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognitionInstance;
+}
+interface SpeechRecognitionInstance {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
+  onerror: (() => void) | null;
+}
+interface SpeechRecognitionResultEvent {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: { [index: number]: { transcript: string } };
+  };
+}
+
+// Check if SpeechRecognition is supported
+const w =
+  typeof window !== "undefined"
+    ? (window as unknown as Record<string, unknown>)
+    : undefined;
+const SpeechRecognitionAPI: SpeechRecognitionConstructor | undefined = w
+  ? (w.SpeechRecognition as SpeechRecognitionConstructor) ||
+    (w.webkitSpeechRecognition as SpeechRecognitionConstructor)
+  : undefined;
+
+const isSpeechSupported = !!SpeechRecognitionAPI;
+
 export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { addToList } = useShoppingList();
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(
     new Set(),
   );
   const [servings, setServings] = useState<number>(4);
+  const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
+  const [isVoiceMode, setIsVoiceMode] = useState<boolean>(false);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const stepRefs = useRef<(HTMLLIElement | null)[]>([]);
 
   // Reset when recipe changes
   useEffect(() => {
     if (recipe) {
       setServings(parseServingCount(recipe.servingSize));
       setCheckedIngredients(new Set());
+      setCurrentStepIndex(0);
+      setIsVoiceMode(false);
     }
   }, [recipe]);
+
+  const speakStep = useCallback(
+    (stepText: string, stepNumber: number) => {
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance();
+      const prefix = t("voice.step_prefix");
+      utterance.text = `${prefix} ${stepNumber}: ${stepText}`;
+      if (language === "hindi") {
+        utterance.lang = "hi-IN";
+      } else if (language === "hinglish") {
+        utterance.lang = "hi-IN";
+      } else {
+        utterance.lang = "en-US";
+      }
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      window.speechSynthesis.speak(utterance);
+    },
+    [t, language],
+  );
 
   const originalServings = recipe ? parseServingCount(recipe.servingSize) : 4;
   const ratio = servings / originalServings;
@@ -81,6 +143,89 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
   const scaledIngredients = recipe
     ? recipe.ingredients.map((ing) => scaleIngredient(ing, ratio))
     : [];
+
+  // Apply Hinglish conversion if needed
+  const displayIngredients =
+    language === "hinglish"
+      ? toHinglishList(scaledIngredients)
+      : scaledIngredients;
+
+  const displayInstructions =
+    language === "hinglish" && recipe
+      ? toHinglishList(recipe.instructions)
+      : (recipe?.instructions ?? []);
+
+  const displayDescription =
+    language === "hinglish" && recipe
+      ? toHinglish(recipe.description)
+      : (recipe?.description ?? "");
+
+  // Voice recognition effect
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional -- recognition re-initializes on mode/recipe/lang change only
+  useEffect(() => {
+    if (!isVoiceMode || !isSpeechSupported || !recipe) return;
+
+    const recognition = new SpeechRecognitionAPI!();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = language === "english" ? "en-US" : "hi-IN";
+
+    recognition.onresult = (event: SpeechRecognitionResultEvent) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript.toLowerCase().trim();
+        const isNextCommand =
+          transcript.includes("next step") ||
+          transcript.includes("agla step") ||
+          transcript.includes("agla") ||
+          transcript.includes("next") ||
+          transcript.includes("aagla");
+
+        if (isNextCommand) {
+          setCurrentStepIndex((prev) => {
+            const next = Math.min(prev + 1, displayInstructions.length - 1);
+            speakStep(displayInstructions[next], next + 1);
+            // scroll to step
+            setTimeout(() => {
+              stepRefs.current[next]?.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+              });
+            }, 100);
+            return next;
+          });
+          break;
+        }
+      }
+    };
+
+    recognition.onerror = () => {
+      // silently ignore errors; recognition will restart if mode stays on
+    };
+
+    recognition.start();
+    recognitionRef.current = recognition;
+
+    // Speak the first step when voice mode is activated
+    speakStep(displayInstructions[currentStepIndex], currentStepIndex + 1);
+
+    return () => {
+      recognition.stop();
+      recognition.onresult = null;
+      recognitionRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVoiceMode, recipe, language]);
+
+  const toggleVoiceMode = () => {
+    if (isVoiceMode) {
+      recognitionRef.current?.stop();
+      window.speechSynthesis?.cancel();
+      setIsVoiceMode(false);
+    } else {
+      setCurrentStepIndex(0);
+      setIsVoiceMode(true);
+    }
+  };
 
   const toggleIngredient = (index: number) => {
     setCheckedIngredients((prev) => {
@@ -170,7 +315,7 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
                     className="text-sm mt-1"
                     style={{ color: "oklch(0.75 0.01 0)" }}
                   >
-                    {recipe.description}
+                    {displayDescription}
                   </p>
                 </DialogHeader>
               </div>
@@ -291,7 +436,7 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
                   {t("detail.ingredients")}
                 </h3>
                 <ul className="space-y-2">
-                  {scaledIngredients.map((ing, i) => (
+                  {displayIngredients.map((ing, i) => (
                     // biome-ignore lint/suspicious/noArrayIndexKey: ingredient order is stable within a recipe
                     <li key={i} className="flex items-start gap-3">
                       <Checkbox
@@ -336,33 +481,131 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
 
               {/* Instructions */}
               <div className="mt-6">
-                <h3
-                  className="font-display font-semibold text-lg mb-3"
-                  style={{ color: "oklch(0.90 0.01 0)" }}
-                >
-                  {t("detail.instructions")}
-                </h3>
-                <ol className="space-y-3">
-                  {recipe.instructions.map((step, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: instruction order is stable within a recipe
-                    <li key={i} className="flex gap-3">
-                      <span
-                        className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold mt-0.5"
+                <div className="flex items-center justify-between mb-3">
+                  <h3
+                    className="font-display font-semibold text-lg"
+                    style={{ color: "oklch(0.90 0.01 0)" }}
+                  >
+                    {t("detail.instructions")}
+                  </h3>
+
+                  {/* Voice Mode Button — only shown if SpeechRecognition is supported */}
+                  {isSpeechSupported && (
+                    <div className="flex items-center gap-2">
+                      {isVoiceMode && (
+                        <span
+                          className="text-xs font-medium animate-pulse"
+                          style={{ color: "oklch(0.65 0.22 142)" }}
+                        >
+                          {t("voice.listening")}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        data-ocid="recipe.voice_mode.toggle"
+                        onClick={toggleVoiceMode}
+                        aria-label={
+                          isVoiceMode
+                            ? t("voice.button_off")
+                            : t("voice.button_on")
+                        }
+                        aria-pressed={isVoiceMode}
+                        className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all active:scale-95"
                         style={{
-                          background: "oklch(0.55 0.18 142)",
-                          color: "oklch(0.08 0.005 0)",
+                          background: isVoiceMode
+                            ? "oklch(0.20 0.10 142)"
+                            : "oklch(0.18 0.01 0)",
+                          color: isVoiceMode
+                            ? "oklch(0.65 0.22 142)"
+                            : "oklch(0.60 0.01 0)",
+                          border: isVoiceMode
+                            ? "1px solid oklch(0.45 0.18 142)"
+                            : "1px solid oklch(0.28 0.01 0)",
+                          boxShadow: isVoiceMode
+                            ? "0 0 12px oklch(0.55 0.20 142 / 0.4)"
+                            : "none",
                         }}
                       >
-                        {i + 1}
-                      </span>
-                      <p
-                        className="text-sm leading-relaxed pt-0.5"
-                        style={{ color: "oklch(0.78 0.01 0)" }}
+                        {isVoiceMode ? (
+                          <MicOff className="w-3.5 h-3.5" aria-hidden="true" />
+                        ) : (
+                          <Mic className="w-3.5 h-3.5" aria-hidden="true" />
+                        )}
+                        {isVoiceMode
+                          ? t("voice.button_off")
+                          : t("voice.button_on")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Voice mode helper tip */}
+                {isVoiceMode && (
+                  <div
+                    className="mb-3 px-3 py-2 rounded-xl text-xs"
+                    style={{
+                      background: "oklch(0.15 0.06 142 / 0.3)",
+                      border: "1px solid oklch(0.30 0.10 142 / 0.4)",
+                      color: "oklch(0.65 0.15 142)",
+                    }}
+                  >
+                    🎤 Say <strong>"Next Step"</strong> /{" "}
+                    <strong>"Agla Step"</strong> to advance
+                  </div>
+                )}
+
+                <ol className="space-y-3">
+                  {displayInstructions.map((step, i) => {
+                    const isActive = isVoiceMode && i === currentStepIndex;
+                    const isPast = isVoiceMode && i < currentStepIndex;
+                    return (
+                      <li
+                        key={step.substring(0, 20)}
+                        ref={(el) => {
+                          stepRefs.current[i] = el;
+                        }}
+                        className="flex gap-3 transition-all duration-300"
+                        style={{
+                          opacity:
+                            isVoiceMode && !isActive && !isPast
+                              ? 0.45
+                              : isPast
+                                ? 0.55
+                                : 1,
+                        }}
                       >
-                        {step}
-                      </p>
-                    </li>
-                  ))}
+                        <span
+                          className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold mt-0.5 transition-all duration-300"
+                          style={{
+                            background: isActive
+                              ? "oklch(0.65 0.22 142)"
+                              : isPast
+                                ? "oklch(0.35 0.10 142)"
+                                : "oklch(0.55 0.18 142)",
+                            color: "oklch(0.08 0.005 0)",
+                            boxShadow: isActive
+                              ? "0 0 10px oklch(0.65 0.22 142 / 0.5)"
+                              : "none",
+                          }}
+                        >
+                          {i + 1}
+                        </span>
+                        <p
+                          className="text-sm leading-relaxed pt-0.5 transition-colors duration-300"
+                          style={{
+                            color: isActive
+                              ? "oklch(0.93 0.01 0)"
+                              : isPast
+                                ? "oklch(0.50 0.01 0)"
+                                : "oklch(0.78 0.01 0)",
+                            fontWeight: isActive ? 500 : 400,
+                          }}
+                        >
+                          {step}
+                        </p>
+                      </li>
+                    );
+                  })}
                 </ol>
               </div>
             </ScrollArea>

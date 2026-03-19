@@ -10,7 +10,17 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Recipe } from "@/data/recipes";
-import { Bot, Plus, Refrigerator, Search, Send, Trash2, X } from "lucide-react";
+import {
+  Bot,
+  ExternalLink,
+  Key,
+  Plus,
+  Refrigerator,
+  Search,
+  Send,
+  Trash2,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -57,10 +67,8 @@ const PANTRY_INGREDIENTS = [
   "Til",
 ];
 
-const GEMINI_KEY_STORAGE = "rasoi_gemini_key";
 const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
-const DEFAULT_GEMINI_KEY = "AIzaSyBQb61vCByrKijsVYnq5jR-fqrYnBB0Rwc";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 const SYSTEM_PROMPT = `You are an expert Indian recipe assistant named "Rasoi AI". The user will tell you what ingredients they have available at home and you will suggest delicious Indian recipes they can make with those ingredients.
 - Give 2-3 recipe suggestions with brief ingredient list and cooking steps
@@ -70,6 +78,8 @@ const SYSTEM_PROMPT = `You are an expert Indian recipe assistant named "Rasoi AI
 - If user writes in Hinglish, respond in Hinglish
 - Keep responses concise but helpful
 - Format recipes clearly with name, key ingredients, and numbered steps`;
+
+const API_KEY_STORAGE = "rasoi_gemini_api_key";
 
 type TabType = "smart_match" | "ai_chef";
 
@@ -94,25 +104,43 @@ interface MatchedRecipe {
 
 function AiChefTab() {
   const { t } = useLanguage();
-  const [apiKey, setApiKey] = useState(
-    () => localStorage.getItem(GEMINI_KEY_STORAGE) || DEFAULT_GEMINI_KEY,
-  );
+  const [apiKey, setApiKey] = useState<string>(() => {
+    return localStorage.getItem(API_KEY_STORAGE) || "";
+  });
+  const [keyInput, setKeyInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [userInput, setUserInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [scrollTick, setScrollTick] = useState(0);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  const hasKey = apiKey.trim().length > 0;
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: scrollTick is intentional trigger
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [scrollTick]);
 
+  const saveKey = () => {
+    const trimmed = keyInput.trim();
+    if (!trimmed) return;
+    localStorage.setItem(API_KEY_STORAGE, trimmed);
+    setApiKey(trimmed);
+    setKeyInput("");
+  };
+
+  const changeKey = () => {
+    localStorage.removeItem(API_KEY_STORAGE);
+    setApiKey("");
+    setKeyInput("");
+    setMessages([]);
+  };
+
   const clearChat = () => setMessages([]);
 
   const sendMessage = async () => {
     const text = userInput.trim();
-    if (!text || !apiKey || loading) return;
+    if (!text || loading || !hasKey) return;
 
     const newUserMsg: ChatMessage = {
       id: `msg-${Date.now()}-u`,
@@ -126,7 +154,6 @@ function AiChefTab() {
     setLoading(true);
 
     try {
-      // Build contents array: system prompt as first user/model pair, then conversation
       const contents = [
         { role: "user", parts: [{ text: SYSTEM_PROMPT }] },
         {
@@ -150,7 +177,38 @@ function AiChefTab() {
       });
 
       if (!res.ok) {
-        throw new Error(`API error: ${res.status}`);
+        const errBody = await res.json().catch(() => null);
+        const errMessage = errBody?.error?.message || "";
+
+        let userFacingError: string;
+
+        if (res.status === 401 || res.status === 403) {
+          userFacingError =
+            "❌ API key galat hai ya expired. 'Change Key' dabao aur nai key daalo.";
+        } else if (
+          res.status === 400 &&
+          errMessage.toLowerCase().includes("api key")
+        ) {
+          userFacingError =
+            "❌ API key invalid hai. 'Change Key' dabao aur sahi key daalo.";
+        } else if (res.status === 429) {
+          userFacingError = "⏳ Rate limit ho gaya. Thodi der baad try karo.";
+        } else if (errMessage) {
+          userFacingError = `Error: ${errMessage}`;
+        } else {
+          userFacingError = t("fridge.ai.error");
+        }
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}-e`,
+            role: "model" as const,
+            text: userFacingError,
+          },
+        ]);
+        setScrollTick((n) => n + 1);
+        return;
       }
 
       const data = await res.json();
@@ -168,7 +226,7 @@ function AiChefTab() {
         {
           id: `msg-${Date.now()}-e`,
           role: "model",
-          text: t("fridge.ai.error"),
+          text: "Network error. Internet connection check karo aur dobara try karo.",
         },
       ]);
       setScrollTick((n) => n + 1);
@@ -177,10 +235,122 @@ function AiChefTab() {
     }
   };
 
-  // Keep apiKey in sync (used only internally for API calls)
-  const _setApiKey = setApiKey;
-  void _setApiKey;
+  // Setup screen -- shown when no API key saved
+  if (!hasKey) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex flex-col items-center gap-5 py-4"
+      >
+        {/* Icon */}
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center"
+          style={{
+            background: "oklch(0.55 0.18 142 / 0.12)",
+            border: "1.5px solid oklch(0.55 0.18 142 / 0.25)",
+          }}
+        >
+          <Bot className="w-8 h-8" style={{ color: "oklch(0.55 0.18 142)" }} />
+        </div>
 
+        {/* Title & description */}
+        <div className="text-center">
+          <h3
+            className="text-xl font-bold mb-2"
+            style={{ color: "oklch(0.93 0.01 0)" }}
+          >
+            AI Chef Setup
+          </h3>
+          <p
+            className="text-sm leading-relaxed max-w-xs"
+            style={{ color: "oklch(0.60 0.01 0)" }}
+          >
+            Apni free Gemini API key daalo.{" "}
+            <span style={{ color: "oklch(0.75 0.12 142)" }}>
+              aistudio.google.com
+            </span>{" "}
+            par jaao → Get API key → Create API key. Ek baar daalni padegi, save
+            ho jaayegi.
+          </p>
+        </div>
+
+        {/* Get key link */}
+        <a
+          data-ocid="fridge.ai.get_key.button"
+          href="https://aistudio.google.com/apikey"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-105 active:scale-95"
+          style={{
+            background: "oklch(0.55 0.18 142 / 0.15)",
+            color: "oklch(0.70 0.18 142)",
+            border: "1.5px solid oklch(0.55 0.18 142 / 0.35)",
+          }}
+        >
+          <ExternalLink className="w-4 h-4" />
+          Free API Key Lo — aistudio.google.com
+        </a>
+
+        {/* Key input */}
+        <div className="w-full max-w-sm flex flex-col gap-2">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Key
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+                style={{ color: "oklch(0.50 0.01 0)" }}
+              />
+              <Input
+                data-ocid="fridge.ai.key.input"
+                type="password"
+                placeholder="AIza... key yahan paste karo"
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveKey();
+                }}
+                className="pl-9 rounded-xl text-sm"
+                style={{
+                  background: "oklch(0.14 0.01 0)",
+                  border: "1.5px solid oklch(0.25 0.02 0)",
+                  color: "oklch(0.90 0.01 0)",
+                }}
+              />
+            </div>
+            <Button
+              data-ocid="fridge.ai.save_key.button"
+              type="button"
+              onClick={saveKey}
+              disabled={!keyInput.trim()}
+              className="rounded-xl px-4 font-semibold shrink-0"
+              style={{
+                background: keyInput.trim()
+                  ? "oklch(0.55 0.18 142)"
+                  : "oklch(0.18 0.01 0)",
+                color: keyInput.trim()
+                  ? "oklch(0.08 0.005 0)"
+                  : "oklch(0.40 0.01 0)",
+                border: "none",
+              }}
+            >
+              Save &amp; Start
+            </Button>
+          </div>
+
+          {/* Privacy note */}
+          <p
+            className="text-xs text-center"
+            style={{ color: "oklch(0.42 0.01 0)" }}
+          >
+            🔒 Key sirf aapke device par save hoti hai
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Chat view -- shown when API key is saved
   return (
     <div className="flex flex-col gap-3">
       {/* Chat messages */}
@@ -192,23 +362,39 @@ function AiChefTab() {
           minHeight: "220px",
         }}
       >
-        {/* Clear chat button */}
-        {messages.length > 0 && (
+        {/* Top bar: change key + clear chat */}
+        <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5">
           <button
-            data-ocid="fridge.ai.clear_chat.button"
+            data-ocid="fridge.ai.change_key.button"
             type="button"
-            onClick={clearChat}
-            className="absolute top-2 right-2 z-10 flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors hover:opacity-80"
+            onClick={changeKey}
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors hover:opacity-80"
             style={{
-              background: "oklch(0.18 0.02 25 / 0.8)",
-              color: "oklch(0.60 0.15 25)",
-              border: "1px solid oklch(0.28 0.08 25 / 0.4)",
+              background: "oklch(0.16 0.02 142 / 0.6)",
+              color: "oklch(0.55 0.12 142)",
+              border: "1px solid oklch(0.30 0.08 142 / 0.35)",
             }}
           >
-            <Trash2 className="w-3 h-3" />
-            {t("fridge.ai.clear_chat")}
+            <Key className="w-3 h-3" />
+            Change Key
           </button>
-        )}
+          {messages.length > 0 && (
+            <button
+              data-ocid="fridge.ai.clear_chat.button"
+              type="button"
+              onClick={clearChat}
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors hover:opacity-80"
+              style={{
+                background: "oklch(0.18 0.02 25 / 0.8)",
+                color: "oklch(0.60 0.15 25)",
+                border: "1px solid oklch(0.28 0.08 25 / 0.4)",
+              }}
+            >
+              <Trash2 className="w-3 h-3" />
+              {t("fridge.ai.clear_chat")}
+            </button>
+          )}
+        </div>
 
         <div className="p-3 flex flex-col gap-2 overflow-y-auto max-h-72">
           {messages.length === 0 && !loading && (

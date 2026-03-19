@@ -402,16 +402,7 @@ function AppContent() {
         }}
       >
         <p className="text-sm" style={{ color: "oklch(0.45 0.01 0)" }}>
-          © {new Date().getFullYear()}. {t("footer.built_with")} ❤️ using{" "}
-          <a
-            href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== "undefined" ? window.location.hostname : "")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold hover:underline"
-            style={{ color: "oklch(0.55 0.18 142)" }}
-          >
-            caffeine.ai
-          </a>
+          © {new Date().getFullYear()} Rasoi — Indian Recipes
         </p>
       </footer>
 

@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Recipe } from "@/data/recipes";
+import { toHinglish } from "@/utils/hinglishConverter";
 import { Clock, Users } from "lucide-react";
 
 interface RecipeCardProps {
@@ -19,7 +20,9 @@ function StarRating({ rating }: { rating: number }) {
         <svg
           key={star}
           aria-hidden="true"
-          className={`w-3.5 h-3.5 ${star <= Math.round(rating) ? "star-filled" : "star-empty"}`}
+          className={`w-3.5 h-3.5 ${
+            star <= Math.round(rating) ? "star-filled" : "star-empty"
+          }`}
           fill="currentColor"
           viewBox="0 0 20 20"
         >
@@ -37,8 +40,13 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 export function RecipeCard({ recipe, index, onClick }: RecipeCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const ocid = `recipe.card.${index}`;
+
+  const displayDescription =
+    language === "hinglish"
+      ? toHinglish(recipe.description)
+      : recipe.description;
 
   return (
     <button
@@ -136,7 +144,7 @@ export function RecipeCard({ recipe, index, onClick }: RecipeCardProps) {
           className="text-xs line-clamp-2 mb-3 leading-relaxed"
           style={{ color: "oklch(0.55 0.01 0)" }}
         >
-          {recipe.description}
+          {displayDescription}
         </p>
 
         {/* Footer */}

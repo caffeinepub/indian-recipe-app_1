@@ -3,13 +3,7 @@ import {
   type TranslationKey,
   translations,
 } from "@/i18n/translations";
-import {
-  type ReactNode,
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import { type ReactNode, createContext, useContext, useState } from "react";
 
 const STORAGE_KEY = "rasoi-language";
 
@@ -24,9 +18,9 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "english" || stored === "hindi" || stored === "hinglish")
-      return stored;
-    return "english";
+    return stored === "english" || stored === "hindi" || stored === "hinglish"
+      ? stored
+      : "hinglish";
   });
 
   const setLanguage = (lang: Language) => {

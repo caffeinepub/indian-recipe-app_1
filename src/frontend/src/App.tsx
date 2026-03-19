@@ -96,6 +96,19 @@ function AppContent() {
 
   const taglineWords = t("app.tagline").split(" ");
 
+  const getNoResultsText = () => {
+    if (!searchQuery) {
+      return `${t("recipes.in_category")} ${activeCategory} category yet.`;
+    }
+    if (language === "hinglish") {
+      return `Koi recipe nahi mili "${searchQuery}" ke liye. Koi aur dish ya samagri try karo.`;
+    }
+    if (language === "hindi") {
+      return `"${searchQuery}" ke liye koi recipe nahi mili. Koi aur dish ya samagri try karein.`;
+    }
+    return `We couldn't find any recipes matching "${searchQuery}". Try searching for a different dish or ingredient.`;
+  };
+
   return (
     <div className="min-h-screen" style={{ background: "oklch(0.08 0.005 0)" }}>
       <Toaster position="top-right" />
@@ -343,7 +356,10 @@ function AppContent() {
         </div>
 
         {filteredRecipes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div
+            data-ocid="recipes.empty_state"
+            className="flex flex-col items-center justify-center py-20 text-center"
+          >
             <div
               className="w-24 h-24 rounded-full flex items-center justify-center mb-6 text-5xl"
               style={{ background: "oklch(0.16 0.01 0)" }}
@@ -361,9 +377,7 @@ function AppContent() {
               className="max-w-sm text-sm"
               style={{ color: "oklch(0.55 0.01 0)" }}
             >
-              {searchQuery
-                ? `We couldn't find any recipes matching "${searchQuery}". Try searching for a different dish or ingredient.`
-                : `${t("recipes.in_category")} ${activeCategory} category yet.`}
+              {getNoResultsText()}
             </p>
             {searchQuery && (
               <button

@@ -321,6 +321,80 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
               </div>
             </div>
 
+            {/* Video Tutorial */}
+            {recipe.videoUrl &&
+              (() => {
+                const videoId =
+                  recipe.videoUrl!.split("/embed/")[1]?.split("?")[0] ?? "";
+                const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+                return (
+                  <div
+                    className="mx-6 mt-4 rounded-2xl overflow-hidden"
+                    style={{
+                      border: "1px solid oklch(0.22 0.01 0)",
+                      background: "oklch(0.08 0.005 0)",
+                    }}
+                  >
+                    <div
+                      className="flex items-center gap-2 px-4 py-2.5"
+                      style={{
+                        background: "oklch(0.13 0.01 0)",
+                        borderBottom: "1px solid oklch(0.20 0.01 0)",
+                      }}
+                    >
+                      <span className="text-base">▶️</span>
+                      <span
+                        className="text-xs font-semibold uppercase tracking-wide"
+                        style={{ color: "oklch(0.60 0.18 25)" }}
+                      >
+                        Video Tutorial
+                      </span>
+                    </div>
+                    <a
+                      href={watchUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block relative aspect-video w-full group overflow-hidden"
+                      aria-label={`${recipe.name} ka video YouTube par dekhein`}
+                    >
+                      <img
+                        src={thumbnailUrl}
+                        alt={`${recipe.name} video thumbnail`}
+                        className="w-full h-full object-cover transition-all duration-300 group-hover:brightness-110"
+                      />
+                      {/* Play button overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div
+                          className="w-16 h-16 rounded-full flex items-center justify-center transition-transform duration-200 group-hover:scale-110"
+                          style={{ background: "rgba(0,0,0,0.65)" }}
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="w-8 h-8"
+                            fill="oklch(0.65 0.22 25)"
+                            aria-hidden="true"
+                          >
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </a>
+                    <div className="px-4 py-2.5 text-center">
+                      <a
+                        href={watchUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-semibold hover:underline"
+                        style={{ color: "oklch(0.65 0.22 25)" }}
+                      >
+                        YouTube par dekhein →
+                      </a>
+                    </div>
+                  </div>
+                );
+              })()}
+
             {/* Meta badges */}
             <div className="flex flex-wrap gap-2 px-6 pt-4">
               <span

@@ -1,3 +1,4 @@
+import { AdBanner } from "@/components/AdBanner";
 import { AdminPanel } from "@/components/AdminPanel";
 import { FridgeCheckModal } from "@/components/FridgeCheckModal";
 import { RecipeCard } from "@/components/RecipeCard";
@@ -40,6 +41,8 @@ function AppContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [pendingRecipe, setPendingRecipe] = useState<Recipe | null>(null);
+  const [showAdBanner, setShowAdBanner] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [shoppingOpen, setShoppingOpen] = useState(false);
   const [fridgeOpen, setFridgeOpen] = useState(false);
@@ -68,6 +71,17 @@ function AppContent() {
       return matchCategory && (matchName || matchIngredient || matchDesc);
     });
   }, [recipes, searchQuery, activeCategory]);
+
+  const handleRecipeClick = (recipe: Recipe) => {
+    setPendingRecipe(recipe);
+    setShowAdBanner(true);
+  };
+
+  const handleAdBannerClose = () => {
+    setShowAdBanner(false);
+    setSelectedRecipe(pendingRecipe);
+    setPendingRecipe(null);
+  };
 
   const handleAdd = (recipe: Omit<Recipe, "id">) => {
     setRecipes((prev) => [...prev, { ...recipe, id: nextId++ }]);
@@ -112,6 +126,9 @@ function AppContent() {
   return (
     <div className="min-h-screen" style={{ background: "oklch(0.08 0.005 0)" }}>
       <Toaster position="top-right" />
+
+      {/* ─── Ad Banner Overlay ─── */}
+      {showAdBanner && <AdBanner onClose={handleAdBannerClose} />}
 
       {/* ─── Header ─── */}
       <header className="relative overflow-hidden">
@@ -400,7 +417,7 @@ function AppContent() {
                 key={recipe.id}
                 recipe={recipe}
                 index={i + 1}
-                onClick={() => setSelectedRecipe(recipe)}
+                onClick={() => handleRecipeClick(recipe)}
               />
             ))}
           </div>
@@ -445,7 +462,7 @@ function AppContent() {
         onClose={() => setFridgeOpen(false)}
         recipes={recipes}
         onSelectRecipe={(r) => {
-          setSelectedRecipe(r);
+          handleRecipeClick(r);
           setFridgeOpen(false);
         }}
       />

@@ -8,6 +8,7 @@ export type Category =
   | "Drinks";
 
 export interface Recipe {
+  videoUrl?: string;
   id: number;
   name: string;
   category: Exclude<Category, "All">;
@@ -53,6 +54,7 @@ export const INITIAL_RECIPES: Recipe[] = [
     cookTime: "15 min",
     servingSize: "2 servings",
     imageUrl: "/assets/generated/dosa.dim_400x300.jpg",
+    videoUrl: "https://www.youtube.com/embed/kHPG6IyFawa",
     description: "Crispy South Indian crepe filled with spiced potato mixture",
     ingredients: [
       "2 cups rice",

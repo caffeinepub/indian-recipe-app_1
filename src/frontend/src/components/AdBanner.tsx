@@ -13,7 +13,7 @@ declare global {
 export function AdBanner({ onClose }: AdBannerProps) {
   const [countdown, setCountdown] = useState(5);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const adRef = useRef<HTMLDivElement>(null);
+  const adPushed = useRef(false);
 
   useEffect(() => {
     timerRef.current = setInterval(() => {
@@ -33,13 +33,32 @@ export function AdBanner({ onClose }: AdBannerProps) {
   }, [onClose]);
 
   useEffect(() => {
-    try {
-      if (adRef.current) {
+    // Load AdSense script
+    if (!document.querySelector('script[src*="adsbygoogle"]')) {
+      const script = document.createElement("script");
+      script.async = true;
+      script.src =
+        "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-app-pub-3940256099942544";
+      script.crossOrigin = "anonymous";
+      document.head.appendChild(script);
+    }
+
+    // Push the interstitial ad
+    if (!adPushed.current) {
+      adPushed.current = true;
+      try {
         window.adsbygoogle = window.adsbygoogle || [];
-        window.adsbygoogle.push({});
+        (window.adsbygoogle as Record<string, unknown>[]).push({
+          google_ad_client: "ca-app-pub-3940256099942544",
+          enable_page_level_ads: true,
+          interstitial: {
+            ad_unit_id: "ca-app-pub-3940256099942544/1033173712",
+            offset: 5,
+          },
+        });
+      } catch (_e) {
+        // AdSense not loaded
       }
-    } catch (_e) {
-      // AdSense not loaded
     }
   }, []);
 
@@ -72,12 +91,13 @@ export function AdBanner({ onClose }: AdBannerProps) {
         </div>
       </div>
 
-      <div ref={adRef} style={{ textAlign: "center", margin: "10px 0" }}>
+      {/* Google AdSense Ad */}
+      <div style={{ textAlign: "center", margin: "10px 0" }}>
         <ins
           className="adsbygoogle"
           style={{ display: "inline-block", width: "320px", height: "50px" }}
           data-ad-client="ca-app-pub-3940256099942544"
-          data-ad-slot="3940256099942544123456"
+          data-ad-slot="1033173712"
         />
       </div>
 

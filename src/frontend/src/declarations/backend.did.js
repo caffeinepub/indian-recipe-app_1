@@ -8,57 +8,135 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const RecipeInput = IDL.Record({
+  'calories' : IDL.Opt(IDL.Nat),
+  'name' : IDL.Text,
+  'chefTips' : IDL.Opt(IDL.Vec(IDL.Text)),
+  'cookTime' : IDL.Text,
+  'description' : IDL.Text,
+  'instructions' : IDL.Vec(IDL.Text),
+  'imageUrl' : IDL.Text,
+  'servingSize' : IDL.Text,
+  'prepTime' : IDL.Text,
+  'category' : IDL.Text,
+  'rating' : IDL.Float64,
+  'isVeg' : IDL.Bool,
+  'videoUrl' : IDL.Opt(IDL.Text),
+  'ingredients' : IDL.Vec(IDL.Text),
+});
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
   'guest' : IDL.Null,
 });
 export const UserProfile = IDL.Record({ 'name' : IDL.Text });
+export const Recipe = IDL.Record({
+  'id' : IDL.Nat,
+  'owner' : IDL.Principal,
+  'calories' : IDL.Opt(IDL.Nat),
+  'name' : IDL.Text,
+  'chefTips' : IDL.Opt(IDL.Vec(IDL.Text)),
+  'cookTime' : IDL.Text,
+  'description' : IDL.Text,
+  'instructions' : IDL.Vec(IDL.Text),
+  'imageUrl' : IDL.Text,
+  'servingSize' : IDL.Text,
+  'prepTime' : IDL.Text,
+  'category' : IDL.Text,
+  'rating' : IDL.Float64,
+  'isVeg' : IDL.Bool,
+  'videoUrl' : IDL.Opt(IDL.Text),
+  'ingredients' : IDL.Vec(IDL.Text),
+});
 export const SessionId = IDL.Text;
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  'addRecipe' : IDL.Func([RecipeInput], [IDL.Nat], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'deleteRecipe' : IDL.Func([IDL.Nat, RecipeInput], [IDL.Bool], []),
   'getActiveUsers' : IDL.Func([], [IDL.Nat], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getRecipes' : IDL.Func([], [IDL.Vec(Recipe)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
       ['query'],
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
-  'pingOnline' : IDL.Func([SessionId], [], []),
+  'isSeeded' : IDL.Func([], [IDL.Bool], ['query']),
+  'pingUser' : IDL.Func([SessionId], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
-  'updateSessionTimeout' : IDL.Func([IDL.Int], [], []),
+  'seedRecipes' : IDL.Func([IDL.Vec(RecipeInput)], [], []),
+  'updateRecipe' : IDL.Func([IDL.Nat, RecipeInput], [IDL.Bool], []),
 });
 
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const RecipeInput = IDL.Record({
+    'calories' : IDL.Opt(IDL.Nat),
+    'name' : IDL.Text,
+    'chefTips' : IDL.Opt(IDL.Vec(IDL.Text)),
+    'cookTime' : IDL.Text,
+    'description' : IDL.Text,
+    'instructions' : IDL.Vec(IDL.Text),
+    'imageUrl' : IDL.Text,
+    'servingSize' : IDL.Text,
+    'prepTime' : IDL.Text,
+    'category' : IDL.Text,
+    'rating' : IDL.Float64,
+    'isVeg' : IDL.Bool,
+    'videoUrl' : IDL.Opt(IDL.Text),
+    'ingredients' : IDL.Vec(IDL.Text),
+  });
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
     'user' : IDL.Null,
     'guest' : IDL.Null,
   });
   const UserProfile = IDL.Record({ 'name' : IDL.Text });
+  const Recipe = IDL.Record({
+    'id' : IDL.Nat,
+    'owner' : IDL.Principal,
+    'calories' : IDL.Opt(IDL.Nat),
+    'name' : IDL.Text,
+    'chefTips' : IDL.Opt(IDL.Vec(IDL.Text)),
+    'cookTime' : IDL.Text,
+    'description' : IDL.Text,
+    'instructions' : IDL.Vec(IDL.Text),
+    'imageUrl' : IDL.Text,
+    'servingSize' : IDL.Text,
+    'prepTime' : IDL.Text,
+    'category' : IDL.Text,
+    'rating' : IDL.Float64,
+    'isVeg' : IDL.Bool,
+    'videoUrl' : IDL.Opt(IDL.Text),
+    'ingredients' : IDL.Vec(IDL.Text),
+  });
   const SessionId = IDL.Text;
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    'addRecipe' : IDL.Func([RecipeInput], [IDL.Nat], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'deleteRecipe' : IDL.Func([IDL.Nat, RecipeInput], [IDL.Bool], []),
     'getActiveUsers' : IDL.Func([], [IDL.Nat], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getRecipes' : IDL.Func([], [IDL.Vec(Recipe)], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
         ['query'],
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
-    'pingOnline' : IDL.Func([SessionId], [], []),
+    'isSeeded' : IDL.Func([], [IDL.Bool], ['query']),
+    'pingUser' : IDL.Func([SessionId], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
-    'updateSessionTimeout' : IDL.Func([IDL.Int], [], []),
+    'seedRecipes' : IDL.Func([IDL.Vec(RecipeInput)], [], []),
+    'updateRecipe' : IDL.Func([IDL.Nat, RecipeInput], [IDL.Bool], []),
   });
 };
 

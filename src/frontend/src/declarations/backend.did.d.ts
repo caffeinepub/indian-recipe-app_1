@@ -10,6 +10,40 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface Recipe {
+  'id' : bigint,
+  'owner' : Principal,
+  'calories' : [] | [bigint],
+  'name' : string,
+  'chefTips' : [] | [Array<string>],
+  'cookTime' : string,
+  'description' : string,
+  'instructions' : Array<string>,
+  'imageUrl' : string,
+  'servingSize' : string,
+  'prepTime' : string,
+  'category' : string,
+  'rating' : number,
+  'isVeg' : boolean,
+  'videoUrl' : [] | [string],
+  'ingredients' : Array<string>,
+}
+export interface RecipeInput {
+  'calories' : [] | [bigint],
+  'name' : string,
+  'chefTips' : [] | [Array<string>],
+  'cookTime' : string,
+  'description' : string,
+  'instructions' : Array<string>,
+  'imageUrl' : string,
+  'servingSize' : string,
+  'prepTime' : string,
+  'category' : string,
+  'rating' : number,
+  'isVeg' : boolean,
+  'videoUrl' : [] | [string],
+  'ingredients' : Array<string>,
+}
 export type SessionId = string;
 export interface UserProfile { 'name' : string }
 export type UserRole = { 'admin' : null } |
@@ -17,26 +51,28 @@ export type UserRole = { 'admin' : null } |
   { 'guest' : null };
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'addRecipe' : ActorMethod<[RecipeInput], bigint>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'deleteRecipe' : ActorMethod<[bigint, RecipeInput], boolean>,
   /**
-   * / Returns count of unique sessions active within the last 60 seconds
+   * / Returns count of unique sessions active within the last 5 minutes
    * / No authorization required - public metric
    */
   'getActiveUsers' : ActorMethod<[], bigint>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getRecipes' : ActorMethod<[], Array<Recipe>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'isSeeded' : ActorMethod<[], boolean>,
   /**
    * / Updates timestamp to current time
    * / No authorization required - allows tracking of all visitors including guests
    */
-  'pingOnline' : ActorMethod<[SessionId], undefined>,
+  'pingUser' : ActorMethod<[SessionId], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
-  /**
-   * / Admin-only function to update session timeout
-   */
-  'updateSessionTimeout' : ActorMethod<[bigint], undefined>,
+  'seedRecipes' : ActorMethod<[Array<RecipeInput>], undefined>,
+  'updateRecipe' : ActorMethod<[bigint, RecipeInput], boolean>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

@@ -1,4 +1,5 @@
-import { type Category, INITIAL_RECIPES, type Recipe } from "@/data/recipes";
+import type { RecipeInput } from "@/backend";
+import type { Category, Recipe } from "@/data/recipes";
 import { useActor } from "@/hooks/useActor";
 import {
   Crown,
@@ -58,13 +59,8 @@ export function AdminDashboard() {
   const [loginError, setLoginError] = useState("");
 
   // Dashboard state
-  const [recipes, setRecipes] = useState<Recipe[]>(() => {
-    try {
-      const saved = localStorage.getItem("rasoi_admin_recipes");
-      if (saved) return JSON.parse(saved) as Recipe[];
-    } catch {}
-    return INITIAL_RECIPES;
-  });
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [recipesLoading, setRecipesLoading] = useState(false);
   const [activeUsers, setActiveUsers] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
@@ -85,11 +81,6 @@ export function AdminDashboard() {
     return () => clearInterval(interval);
   }, [isAuthenticated, actor]);
 
-  // Sync recipes to localStorage
-  useEffect(() => {
-    localStorage.setItem("rasoi_admin_recipes", JSON.stringify(recipes));
-  }, [recipes]);
-
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (loginId === ADMIN_ID && loginPass === ADMIN_PASS) {
@@ -105,6 +96,72 @@ export function AdminDashboard() {
     setLoginId("");
     setLoginPass("");
   };
+
+  // Backend helpers
+  const toRecipeInput = (r: Omit<Recipe, "id">): RecipeInput => ({
+    name: r.name,
+    category: r.category,
+    ingredients: r.ingredients,
+    instructions: r.instructions,
+    prepTime: r.prepTime,
+    cookTime: r.cookTime,
+    servingSize: r.servingSize,
+    imageUrl: r.imageUrl,
+    rating: r.rating,
+    description: r.description,
+    isVeg: r.isVeg,
+    calories: r.calories !== undefined ? BigInt(r.calories) : undefined,
+    chefTips: r.chefTips,
+    videoUrl: r.videoUrl,
+  });
+
+  const mapBackendRecipe = (r: {
+    id: bigint;
+    name: string;
+    category: string;
+    ingredients: string[];
+    instructions: string[];
+    prepTime: string;
+    cookTime: string;
+    servingSize: string;
+    imageUrl: string;
+    rating: number;
+    description: string;
+    isVeg: boolean;
+    calories?: bigint;
+    chefTips?: string[];
+    videoUrl?: string;
+  }): Recipe => ({
+    id: Number(r.id),
+    name: r.name,
+    category: r.category as Recipe["category"],
+    ingredients: r.ingredients,
+    instructions: r.instructions,
+    prepTime: r.prepTime,
+    cookTime: r.cookTime,
+    servingSize: r.servingSize,
+    imageUrl: r.imageUrl,
+    rating: r.rating,
+    description: r.description,
+    isVeg: r.isVeg,
+    calories: r.calories !== undefined ? Number(r.calories) : undefined,
+    chefTips: r.chefTips,
+    videoUrl: r.videoUrl,
+  });
+
+  const refreshRecipes = async () => {
+    if (!actor) return;
+    const list = await actor.getRecipes();
+    setRecipes(list.map(mapBackendRecipe));
+  };
+
+  // Load recipes when authenticated
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshRecipes is stable
+  useEffect(() => {
+    if (!isAuthenticated || !actor) return;
+    setRecipesLoading(true);
+    refreshRecipes().finally(() => setRecipesLoading(false));
+  }, [isAuthenticated, actor]);
 
   const openAdd = () => {
     setEditingRecipe(null);
@@ -140,7 +197,8 @@ export function AdminDashboard() {
     setShowForm(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!actor) return;
     const finalForm = {
       ...form,
       ingredients: ingredientsText
@@ -156,21 +214,32 @@ export function AdminDashboard() {
         .map((s) => s.trim())
         .filter(Boolean),
     };
-    if (editingRecipe) {
-      setRecipes((prev) =>
-        prev.map((r) =>
-          r.id === editingRecipe.id ? { ...finalForm, id: r.id } : r,
-        ),
-      );
-    } else {
-      const newId = Math.max(...recipes.map((r) => r.id), 0) + 1;
-      setRecipes((prev) => [...prev, { ...finalForm, id: newId }]);
+    try {
+      if (editingRecipe) {
+        await actor.updateRecipe(
+          BigInt(editingRecipe.id),
+          toRecipeInput(finalForm),
+        );
+      } else {
+        await actor.addRecipe(toRecipeInput(finalForm));
+      }
+      await refreshRecipes();
+    } catch (err) {
+      console.error("Save recipe failed:", err);
     }
     setShowForm(false);
   };
 
-  const handleDelete = (id: number) => {
-    setRecipes((prev) => prev.filter((r) => r.id !== id));
+  const handleDelete = async (id: number) => {
+    if (!actor) return;
+    const recipe = recipes.find((r) => r.id === id);
+    if (!recipe) return;
+    try {
+      await actor.deleteRecipe(BigInt(id), toRecipeInput(recipe));
+      await refreshRecipes();
+    } catch (err) {
+      console.error("Delete recipe failed:", err);
+    }
     setDeleteConfirm(null);
   };
 
@@ -464,8 +533,19 @@ export function AdminDashboard() {
             className="px-6 py-4 flex items-center justify-between"
             style={{ borderBottom: "1px solid #2a2a2a" }}
           >
-            <h2 className="text-base font-bold" style={{ color: "#f5f5f5" }}>
+            <h2
+              className="text-base font-bold flex items-center gap-2"
+              style={{ color: "#f5f5f5" }}
+            >
               Recipe Manager
+              {recipesLoading && (
+                <span
+                  className="text-xs font-normal"
+                  style={{ color: "#a3a3a3" }}
+                >
+                  Loading...
+                </span>
+              )}
             </h2>
             <button
               data-ocid="admin.primary_button"

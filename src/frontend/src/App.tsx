@@ -1,3 +1,4 @@
+import type { RecipeInput } from "@/backend";
 import { AdBanner } from "@/components/AdBanner";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { AdminPanel } from "@/components/AdminPanel";
@@ -30,8 +31,6 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-let nextId = INITIAL_RECIPES.length + 1;
-
 const LANG_LABELS: { code: Language; label: string }[] = [
   { code: "english", label: "EN" },
   { code: "hindi", label: "हिं" },
@@ -40,8 +39,8 @@ const LANG_LABELS: { code: Language; label: string }[] = [
 
 function AppContent() {
   const { t, language, setLanguage } = useLanguage();
-  const { actor } = useActor();
-  const [recipes, setRecipes] = useState<Recipe[]>(INITIAL_RECIPES);
+  const { actor, isFetching } = useActor();
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -51,18 +50,94 @@ function AppContent() {
   const [fridgeOpen, setFridgeOpen] = useState(false);
   const [mealPlannerOpen, setMealPlannerOpen] = useState(false);
 
+  // Helper: map backend Recipe → frontend Recipe
+  const mapBackendRecipe = (r: {
+    id: bigint;
+    name: string;
+    category: string;
+    ingredients: string[];
+    instructions: string[];
+    prepTime: string;
+    cookTime: string;
+    servingSize: string;
+    imageUrl: string;
+    rating: number;
+    description: string;
+    isVeg: boolean;
+    calories?: bigint;
+    chefTips?: string[];
+    videoUrl?: string;
+  }): Recipe => ({
+    id: Number(r.id),
+    name: r.name,
+    category: r.category as Recipe["category"],
+    ingredients: r.ingredients,
+    instructions: r.instructions,
+    prepTime: r.prepTime,
+    cookTime: r.cookTime,
+    servingSize: r.servingSize,
+    imageUrl: r.imageUrl,
+    rating: r.rating,
+    description: r.description,
+    isVeg: r.isVeg,
+    calories: r.calories !== undefined ? Number(r.calories) : undefined,
+    chefTips: r.chefTips,
+    videoUrl: r.videoUrl,
+  });
+
+  // Helper: map frontend Recipe → backend RecipeInput
+  const toRecipeInput = (r: Omit<Recipe, "id">): RecipeInput => ({
+    name: r.name,
+    category: r.category,
+    ingredients: r.ingredients,
+    instructions: r.instructions,
+    prepTime: r.prepTime,
+    cookTime: r.cookTime,
+    servingSize: r.servingSize,
+    imageUrl: r.imageUrl,
+    rating: r.rating,
+    description: r.description,
+    isVeg: r.isVeg,
+    calories: r.calories !== undefined ? BigInt(r.calories) : undefined,
+    chefTips: r.chefTips,
+    videoUrl: r.videoUrl,
+  });
+
+  // Load recipes from backend on mount
+  // biome-ignore lint/correctness/useExhaustiveDependencies: toRecipeInput and mapBackendRecipe are stable
+  useEffect(() => {
+    if (!actor || isFetching) return;
+    const loadRecipes = async () => {
+      try {
+        const seeded = await actor.isSeeded();
+        if (!seeded) {
+          const seedData: RecipeInput[] = INITIAL_RECIPES.map(toRecipeInput);
+          await actor.seedRecipes(seedData);
+        }
+        const backendRecipes = await actor.getRecipes();
+        setRecipes(backendRecipes.map(mapBackendRecipe));
+      } catch (err) {
+        console.error("Failed to load recipes from backend:", err);
+        setRecipes(INITIAL_RECIPES);
+      } finally {
+      }
+    };
+    loadRecipes();
+  }, [actor, isFetching]);
+
   // Session ping for real-time user tracking
   useEffect(() => {
+    if (!actor) return;
     let sessionId = sessionStorage.getItem("rasoi_session_id");
     if (!sessionId) {
       sessionId = crypto.randomUUID();
       sessionStorage.setItem("rasoi_session_id", sessionId);
     }
     const id = sessionId;
-    actor?.pingOnline(id);
+    actor.pingUser(id);
     const interval = setInterval(() => {
-      actor?.pingOnline(id);
-    }, 30000);
+      actor.pingUser(id);
+    }, 120000);
     return () => clearInterval(interval);
   }, [actor]);
 
@@ -102,20 +177,45 @@ function AppContent() {
     setPendingRecipe(null);
   };
 
-  const handleAdd = (recipe: Omit<Recipe, "id">) => {
-    setRecipes((prev) => [...prev, { ...recipe, id: nextId++ }]);
-    toast.success(`"${recipe.name}" added successfully!`);
+  const handleAdd = async (recipe: Omit<Recipe, "id">) => {
+    if (!actor) return;
+    try {
+      await actor.addRecipe(toRecipeInput(recipe));
+      const updated = await actor.getRecipes();
+      setRecipes(updated.map(mapBackendRecipe));
+      toast.success(`"${recipe.name}" add ho gayi!`);
+    } catch (err) {
+      console.error("Add recipe failed:", err);
+      toast.error("Recipe add karne mein error aaya.");
+    }
   };
 
-  const handleEdit = (updated: Recipe) => {
-    setRecipes((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-    toast.success(`"${updated.name}" updated!`);
+  const handleEdit = async (updated: Recipe) => {
+    if (!actor) return;
+    try {
+      await actor.updateRecipe(BigInt(updated.id), toRecipeInput(updated));
+      const refreshed = await actor.getRecipes();
+      setRecipes(refreshed.map(mapBackendRecipe));
+      toast.success(`"${updated.name}" update ho gayi!`);
+    } catch (err) {
+      console.error("Update recipe failed:", err);
+      toast.error("Recipe update karne mein error aaya.");
+    }
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
+    if (!actor) return;
     const recipe = recipes.find((r) => r.id === id);
-    setRecipes((prev) => prev.filter((r) => r.id !== id));
-    toast.success(`"${recipe?.name}" removed.`);
+    if (!recipe) return;
+    try {
+      await actor.deleteRecipe(BigInt(id), toRecipeInput(recipe));
+      const refreshed = await actor.getRecipes();
+      setRecipes(refreshed.map(mapBackendRecipe));
+      toast.success(`"${recipe.name}" hata di gayi!`);
+    } catch (err) {
+      console.error("Delete recipe failed:", err);
+      toast.error("Recipe hatane mein error aaya.");
+    }
   };
 
   const recipeCountText =

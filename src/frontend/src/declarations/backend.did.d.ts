@@ -10,7 +10,34 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
-export interface _SERVICE {}
+export type SessionId = string;
+export interface UserProfile { 'name' : string }
+export type UserRole = { 'admin' : null } |
+  { 'user' : null } |
+  { 'guest' : null };
+export interface _SERVICE {
+  '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  /**
+   * / Returns count of unique sessions active within the last 60 seconds
+   * / No authorization required - public metric
+   */
+  'getActiveUsers' : ActorMethod<[], bigint>,
+  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
+  'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'isCallerAdmin' : ActorMethod<[], boolean>,
+  /**
+   * / Updates timestamp to current time
+   * / No authorization required - allows tracking of all visitors including guests
+   */
+  'pingOnline' : ActorMethod<[SessionId], undefined>,
+  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  /**
+   * / Admin-only function to update session timeout
+   */
+  'updateSessionTimeout' : ActorMethod<[bigint], undefined>,
+}
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];
 export declare const idlFactory: IDL.InterfaceFactory;

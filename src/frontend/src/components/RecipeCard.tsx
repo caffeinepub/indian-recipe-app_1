@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Recipe } from "@/data/recipes";
+import { useReviews } from "@/hooks/useReviews";
 import { toHinglish } from "@/utils/hinglishConverter";
 import { Clock, Users } from "lucide-react";
 
@@ -10,19 +11,23 @@ interface RecipeCardProps {
   onClick: () => void;
 }
 
-function StarRating({ rating }: { rating: number }) {
+function StarBadge({
+  recipeId,
+  fallback,
+}: { recipeId: number; fallback: number }) {
+  const { avgRating, count } = useReviews(recipeId);
+  const display = avgRating !== null ? avgRating : fallback;
+  const filled = Math.round(display);
   return (
     <div
       className="flex items-center gap-0.5"
-      aria-label={`Rating: ${rating} out of 5`}
+      aria-label={`Rating: ${display.toFixed(1)} out of 5`}
     >
       {[1, 2, 3, 4, 5].map((star) => (
         <svg
           key={star}
           aria-hidden="true"
-          className={`w-3.5 h-3.5 ${
-            star <= Math.round(rating) ? "star-filled" : "star-empty"
-          }`}
+          className={`w-3.5 h-3.5 ${star <= filled ? "star-filled" : "star-empty"}`}
           fill="currentColor"
           viewBox="0 0 20 20"
         >
@@ -33,7 +38,10 @@ function StarRating({ rating }: { rating: number }) {
         className="text-xs font-semibold ml-1"
         style={{ color: "oklch(0.60 0.01 0)" }}
       >
-        {rating.toFixed(1)}
+        {display.toFixed(1)}
+        {count > 0 && (
+          <span style={{ color: "oklch(0.45 0.01 0)" }}> ({count})</span>
+        )}
       </span>
     </div>
   );
@@ -69,7 +77,6 @@ export function RecipeCard({ recipe, index, onClick }: RecipeCardProps) {
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           loading="lazy"
         />
-        {/* Overlay gradient */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
         {/* Veg/Non-veg badge */}
@@ -118,7 +125,6 @@ export function RecipeCard({ recipe, index, onClick }: RecipeCardProps) {
 
       {/* Content */}
       <div className="p-4">
-        {/* Category badge */}
         <Badge
           variant="secondary"
           className="mb-2 text-xs font-semibold"
@@ -131,7 +137,6 @@ export function RecipeCard({ recipe, index, onClick }: RecipeCardProps) {
           {recipe.category}
         </Badge>
 
-        {/* Name */}
         <h3
           className="font-display font-semibold text-base leading-snug mb-1.5 transition-colors line-clamp-2"
           style={{ color: "oklch(0.90 0.01 0)" }}
@@ -139,7 +144,6 @@ export function RecipeCard({ recipe, index, onClick }: RecipeCardProps) {
           {recipe.name}
         </h3>
 
-        {/* Description */}
         <p
           className="text-xs line-clamp-2 mb-3 leading-relaxed"
           style={{ color: "oklch(0.55 0.01 0)" }}
@@ -147,12 +151,11 @@ export function RecipeCard({ recipe, index, onClick }: RecipeCardProps) {
           {displayDescription}
         </p>
 
-        {/* Footer */}
         <div
           className="flex items-center justify-between pt-3"
           style={{ borderTop: "1px solid oklch(0.20 0.01 0)" }}
         >
-          <StarRating rating={recipe.rating} />
+          <StarBadge recipeId={recipe.id} fallback={recipe.rating} />
           <div
             className="flex items-center gap-1 text-xs"
             style={{ color: "oklch(0.55 0.01 0)" }}

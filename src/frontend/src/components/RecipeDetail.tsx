@@ -7,18 +7,25 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/context/LanguageContext";
+import { RECIPE_EXTRAS } from "@/data/recipeExtras";
 import type { Recipe } from "@/data/recipes";
+import { useReviews } from "@/hooks/useReviews";
 import { useShoppingList } from "@/hooks/useShoppingList";
 import { toHinglish, toHinglishList } from "@/utils/hinglishConverter";
 import {
   ChefHat,
   Clock,
+  Lightbulb,
   Mic,
   MicOff,
   Minus,
   Plus,
+  Printer,
+  Share2,
   ShoppingCart,
+  Star,
   Users,
   X,
 } from "lucide-react";
@@ -30,7 +37,6 @@ interface RecipeDetailProps {
   onClose: () => void;
 }
 
-/** Extract the leading number from an ingredient string like "2 cups flour" -> 2 */
 function extractLeadingNumber(str: string): number | null {
   const match = str.match(/^(\d+(?:\.\d+)?(?:\/\d+)?)/);
   if (!match) return null;
@@ -41,7 +47,6 @@ function extractLeadingNumber(str: string): number | null {
   return Number.parseFloat(match[1]);
 }
 
-/** Scale an ingredient string by a ratio */
 function scaleIngredient(ing: string, ratio: number): string {
   const match = ing.match(/^(\d+(?:\.\d+)?(?:\/\d+)?)(.*)/);
   if (!match) return ing;
@@ -55,13 +60,11 @@ function scaleIngredient(ing: string, ratio: number): string {
   return `${rounded}${match[2]}`;
 }
 
-/** Parse serving count from strings like "Serves 4", "4 servings", "4 people" */
 function parseServingCount(servingSize: string): number {
   const match = servingSize.match(/(\d+)/);
   return match ? Number.parseInt(match[1], 10) : 4;
 }
 
-// Extend window type for SpeechRecognition
 interface SpeechRecognitionConstructor {
   new (): SpeechRecognitionInstance;
 }
@@ -82,7 +85,6 @@ interface SpeechRecognitionResultEvent {
   };
 }
 
-// Check if SpeechRecognition is supported
 const w =
   typeof window !== "undefined"
     ? (window as unknown as Record<string, unknown>)
@@ -93,6 +95,203 @@ const SpeechRecognitionAPI: SpeechRecognitionConstructor | undefined = w
   : undefined;
 
 const isSpeechSupported = !!SpeechRecognitionAPI;
+
+// ─── Star Input ───────────────────────────────────────────────────────────────
+function StarInput({
+  value,
+  onChange,
+}: { value: number; onChange: (v: number) => void }) {
+  const [hover, setHover] = useState(0);
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          onClick={() => onChange(star)}
+          onMouseEnter={() => setHover(star)}
+          onMouseLeave={() => setHover(0)}
+          className="transition-transform hover:scale-110 active:scale-95"
+          aria-label={`Rate ${star} stars`}
+        >
+          <Star
+            className="w-6 h-6"
+            fill={(hover || value) >= star ? "oklch(0.72 0.18 55)" : "none"}
+            stroke={
+              (hover || value) >= star
+                ? "oklch(0.72 0.18 55)"
+                : "oklch(0.40 0.01 0)"
+            }
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Star Display ─────────────────────────────────────────────────────────────
+function StarDisplay({ rating, size = 4 }: { rating: number; size?: number }) {
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={`w-${size} h-${size}`}
+          fill={star <= Math.round(rating) ? "oklch(0.72 0.18 55)" : "none"}
+          stroke={
+            star <= Math.round(rating)
+              ? "oklch(0.72 0.18 55)"
+              : "oklch(0.35 0.01 0)"
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Reviews Section ──────────────────────────────────────────────────────────
+function ReviewsSection({ recipeId }: { recipeId: number }) {
+  const { reviews, addReview, avgRating, count } = useReviews(recipeId);
+  const [userRating, setUserRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = () => {
+    if (userRating === 0) {
+      toast.error("Pehle stars do!");
+      return;
+    }
+    addReview(userRating, comment);
+    setUserRating(0);
+    setComment("");
+    setSubmitted(true);
+    toast.success("Aapka review add ho gaya! ⭐");
+    setTimeout(() => setSubmitted(false), 2000);
+  };
+
+  return (
+    <div className="mt-6">
+      <h3
+        className="font-display font-semibold text-lg mb-3"
+        style={{ color: "oklch(0.90 0.01 0)" }}
+      >
+        ⭐ Ratings & Reviews
+      </h3>
+
+      {/* Average */}
+      {avgRating !== null && (
+        <div
+          className="flex items-center gap-4 p-4 rounded-2xl mb-4"
+          style={{
+            background: "oklch(0.15 0.01 0)",
+            border: "1px solid oklch(0.22 0.01 0)",
+          }}
+        >
+          <div className="text-center">
+            <p
+              className="text-4xl font-bold font-display"
+              style={{ color: "oklch(0.72 0.18 55)" }}
+            >
+              {avgRating.toFixed(1)}
+            </p>
+            <p
+              className="text-xs mt-0.5"
+              style={{ color: "oklch(0.50 0.01 0)" }}
+            >
+              {count} review{count !== 1 ? "s" : ""}
+            </p>
+          </div>
+          <div>
+            <StarDisplay rating={avgRating} size={5} />
+          </div>
+        </div>
+      )}
+
+      {/* Add Review */}
+      <div
+        className="p-4 rounded-2xl mb-4"
+        style={{
+          background: "oklch(0.13 0.005 0)",
+          border: "1px solid oklch(0.20 0.01 0)",
+        }}
+      >
+        <p
+          className="text-sm font-semibold mb-3"
+          style={{ color: "oklch(0.75 0.01 0)" }}
+        >
+          Apna review do:
+        </p>
+        <StarInput value={userRating} onChange={setUserRating} />
+        <Textarea
+          data-ocid="recipe.review.textarea"
+          placeholder="Kuch likho (optional)..."
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          className="mt-3 text-sm resize-none rounded-xl"
+          rows={2}
+          style={{
+            background: "oklch(0.17 0.01 0)",
+            border: "1px solid oklch(0.26 0.01 0)",
+            color: "oklch(0.85 0.01 0)",
+          }}
+        />
+        <button
+          type="button"
+          data-ocid="recipe.review.submit_button"
+          onClick={handleSubmit}
+          disabled={submitted}
+          className="mt-3 px-5 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
+          style={{
+            background: submitted
+              ? "oklch(0.35 0.10 142)"
+              : "oklch(0.55 0.18 142)",
+            color: "oklch(0.08 0.005 0)",
+          }}
+        >
+          {submitted ? "✓ Dhanywad!" : "Review Submit Karo"}
+        </button>
+      </div>
+
+      {/* Past Reviews */}
+      {reviews.length > 0 && (
+        <div className="space-y-2">
+          {reviews.map((r) => (
+            <div
+              key={r.timestamp}
+              className="p-3 rounded-xl"
+              style={{
+                background: "oklch(0.13 0.005 0)",
+                border: "1px solid oklch(0.20 0.01 0)",
+              }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <StarDisplay rating={r.rating} size={4} />
+                <span
+                  className="text-xs"
+                  style={{ color: "oklch(0.40 0.01 0)" }}
+                >
+                  {new Date(r.timestamp).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "2-digit",
+                  })}
+                </span>
+              </div>
+              {r.comment && (
+                <p
+                  className="text-sm mt-1"
+                  style={{ color: "oklch(0.72 0.01 0)" }}
+                >
+                  {r.comment}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
   const { t, language } = useLanguage();
@@ -106,7 +305,6 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const stepRefs = useRef<(HTMLLIElement | null)[]>([]);
 
-  // Reset when recipe changes
   useEffect(() => {
     if (recipe) {
       setServings(parseServingCount(recipe.servingSize));
@@ -123,13 +321,7 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
       const utterance = new SpeechSynthesisUtterance();
       const prefix = t("voice.step_prefix");
       utterance.text = `${prefix} ${stepNumber}: ${stepText}`;
-      if (language === "hindi") {
-        utterance.lang = "hi-IN";
-      } else if (language === "hinglish") {
-        utterance.lang = "hi-IN";
-      } else {
-        utterance.lang = "en-US";
-      }
+      utterance.lang = language === "english" ? "en-US" : "hi-IN";
       utterance.rate = 0.9;
       utterance.pitch = 1;
       window.speechSynthesis.speak(utterance);
@@ -144,7 +336,6 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
     ? recipe.ingredients.map((ing) => scaleIngredient(ing, ratio))
     : [];
 
-  // Apply Hinglish conversion if needed
   const displayIngredients =
     language === "hinglish"
       ? toHinglishList(scaledIngredients)
@@ -160,8 +351,7 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
       ? toHinglish(recipe.description)
       : (recipe?.description ?? "");
 
-  // Voice recognition effect
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional -- recognition re-initializes on mode/recipe/lang change only
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional
   useEffect(() => {
     if (!isVoiceMode || !isSpeechSupported || !recipe) return;
 
@@ -184,7 +374,6 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
           setCurrentStepIndex((prev) => {
             const next = Math.min(prev + 1, displayInstructions.length - 1);
             speakStep(displayInstructions[next], next + 1);
-            // scroll to step
             setTimeout(() => {
               stepRefs.current[next]?.scrollIntoView({
                 behavior: "smooth",
@@ -198,14 +387,9 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
       }
     };
 
-    recognition.onerror = () => {
-      // silently ignore errors; recognition will restart if mode stays on
-    };
-
+    recognition.onerror = () => {};
     recognition.start();
     recognitionRef.current = recognition;
-
-    // Speak the first step when voice mode is activated
     speakStep(displayInstructions[currentStepIndex], currentStepIndex + 1);
 
     return () => {
@@ -242,11 +426,42 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
     toast.success(t("shopping.added_toast"));
   };
 
+  // Share on WhatsApp
+  const handleWhatsAppShare = () => {
+    if (!recipe) return;
+    const extras = RECIPE_EXTRAS[recipe.id];
+    const calorieInfo = extras ? ` | ${extras.calories} kcal` : "";
+    const lines = [
+      `🍽️ *${recipe.name}*${calorieInfo}`,
+      `⏱️ Prep: ${recipe.prepTime} | Cook: ${recipe.cookTime}`,
+      `👥 Servings: ${recipe.servingSize}`,
+      "",
+      "*Ingredients:*",
+      ...recipe.ingredients.map((i) => `• ${i}`),
+      "",
+      "*Steps:*",
+      ...recipe.instructions.map((s, i) => `${i + 1}. ${s}`),
+      "",
+      "📱 Rasoi App se — Indian Recipes 🇮🇳",
+    ];
+    const text = encodeURIComponent(lines.join("\n"));
+    window.open(`https://wa.me/?text=${text}`, "_blank", "noopener");
+  };
+
+  // Print
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const extras = recipe ? RECIPE_EXTRAS[recipe.id] : null;
+  const scaledCalories =
+    extras && recipe ? Math.round(extras.calories * ratio) : null;
+
   return (
     <Dialog open={!!recipe} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         data-ocid="recipe.detail.modal"
-        className="max-w-2xl max-h-[90vh] p-0 overflow-hidden rounded-3xl"
+        className="max-w-2xl max-h-[90vh] p-0 overflow-hidden rounded-3xl print-recipe-container"
         style={{
           background: "oklch(0.10 0.005 0)",
           border: "1px solid oklch(0.22 0.01 0)",
@@ -268,12 +483,36 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
                 type="button"
                 data-ocid="recipe.detail.close_button"
                 onClick={onClose}
-                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center hover:bg-black/80 transition-colors"
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center hover:bg-black/80 transition-colors print:hidden"
                 style={{ color: "oklch(0.93 0.01 0)" }}
                 aria-label={t("detail.close")}
               >
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
+
+              {/* Share / Print buttons */}
+              <div className="absolute top-4 right-14 flex gap-2 print:hidden">
+                <button
+                  type="button"
+                  data-ocid="recipe.whatsapp.button"
+                  onClick={handleWhatsAppShare}
+                  title="WhatsApp pe share karo"
+                  className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center hover:bg-black/80 transition-colors"
+                  style={{ color: "oklch(0.70 0.18 142)" }}
+                >
+                  <Share2 className="w-4 h-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  data-ocid="recipe.print.button"
+                  onClick={handlePrint}
+                  title="Print karo"
+                  className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center hover:bg-black/80 transition-colors"
+                  style={{ color: "oklch(0.70 0.01 0)" }}
+                >
+                  <Printer className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </div>
 
               {/* Veg badge */}
               <div className="absolute top-4 left-4">
@@ -363,7 +602,6 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
                         alt={`${recipe.name} video thumbnail`}
                         className="w-full h-full object-cover transition-all duration-300 group-hover:brightness-110"
                       />
-                      {/* Play button overlay */}
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div
                           className="w-16 h-16 rounded-full flex items-center justify-center transition-transform duration-200 group-hover:scale-110"
@@ -427,6 +665,18 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
                 <Users className="w-3.5 h-3.5" aria-hidden="true" />
                 {recipe.servingSize}
               </span>
+              {scaledCalories !== null && (
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+                  style={{
+                    background: "oklch(0.18 0.06 30)",
+                    color: "oklch(0.75 0.18 45)",
+                    border: "1px solid oklch(0.30 0.10 40 / 0.4)",
+                  }}
+                >
+                  🔥 {scaledCalories} kcal
+                </span>
+              )}
               <Badge
                 className="text-xs"
                 style={{
@@ -511,7 +761,7 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
                 </h3>
                 <ul className="space-y-2">
                   {displayIngredients.map((ing, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: ingredient order is stable within a recipe
+                    // biome-ignore lint/suspicious/noArrayIndexKey: ingredient order is stable
                     <li key={i} className="flex items-start gap-3">
                       <Checkbox
                         id={`ing-${recipe.id}-${i}`}
@@ -537,7 +787,6 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
                   ))}
                 </ul>
 
-                {/* Add to Shopping List button */}
                 <button
                   type="button"
                   data-ocid="recipe.shopping_list.button"
@@ -563,7 +812,6 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
                     {t("detail.instructions")}
                   </h3>
 
-                  {/* Voice Mode Button — only shown if SpeechRecognition is supported */}
                   {isSpeechSupported && (
                     <div className="flex items-center gap-2">
                       {isVoiceMode && (
@@ -613,7 +861,6 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
                   )}
                 </div>
 
-                {/* Voice mode helper tip */}
                 {isVoiceMode && (
                   <div
                     className="mb-3 px-3 py-2 rounded-xl text-xs"
@@ -682,6 +929,52 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
                   })}
                 </ol>
               </div>
+
+              {/* Chef's Tips */}
+              {extras && extras.chefTips.length > 0 && (
+                <div className="mt-6">
+                  <h3
+                    className="font-display font-semibold text-lg mb-3"
+                    style={{ color: "oklch(0.90 0.01 0)" }}
+                  >
+                    Chef ke Secret Tips 🍴
+                  </h3>
+                  <div className="space-y-2.5">
+                    {extras.chefTips.map((tip, i) => (
+                      <div
+                        // biome-ignore lint/suspicious/noArrayIndexKey: stable order
+                        key={i}
+                        className="flex gap-3 p-3.5 rounded-2xl"
+                        style={{
+                          background: "oklch(0.15 0.04 80 / 0.25)",
+                          border: "1px solid oklch(0.30 0.08 80 / 0.35)",
+                        }}
+                      >
+                        <div
+                          className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-0.5"
+                          style={{
+                            background: "oklch(0.25 0.08 80 / 0.4)",
+                          }}
+                        >
+                          <Lightbulb
+                            className="w-3.5 h-3.5"
+                            style={{ color: "oklch(0.78 0.18 80)" }}
+                          />
+                        </div>
+                        <p
+                          className="text-sm leading-relaxed"
+                          style={{ color: "oklch(0.80 0.01 0)" }}
+                        >
+                          {tip}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Reviews */}
+              <ReviewsSection recipeId={recipe.id} />
             </ScrollArea>
           </>
         )}

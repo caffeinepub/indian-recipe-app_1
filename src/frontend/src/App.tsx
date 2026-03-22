@@ -1,6 +1,8 @@
 import { AdBanner } from "@/components/AdBanner";
+import { AdminDashboard } from "@/components/AdminDashboard";
 import { AdminPanel } from "@/components/AdminPanel";
 import { FridgeCheckModal } from "@/components/FridgeCheckModal";
+import { MealPlanner } from "@/components/MealPlanner";
 import { RecipeCard } from "@/components/RecipeCard";
 import { RecipeDetail } from "@/components/RecipeDetail";
 import { ShoppingListModal } from "@/components/ShoppingListModal";
@@ -16,15 +18,16 @@ import {
   INITIAL_RECIPES,
   type Recipe,
 } from "@/data/recipes";
+import { useActor } from "@/hooks/useActor";
 import type { Language } from "@/i18n/translations";
 import {
+  Calendar,
   ChefHat,
   Refrigerator,
   Search,
   ShoppingCart,
-  Sparkles,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 let nextId = INITIAL_RECIPES.length + 1;
@@ -37,15 +40,31 @@ const LANG_LABELS: { code: Language; label: string }[] = [
 
 function AppContent() {
   const { t, language, setLanguage } = useLanguage();
+  const { actor } = useActor();
   const [recipes, setRecipes] = useState<Recipe[]>(INITIAL_RECIPES);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [pendingRecipe, setPendingRecipe] = useState<Recipe | null>(null);
   const [showAdBanner, setShowAdBanner] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
   const [shoppingOpen, setShoppingOpen] = useState(false);
   const [fridgeOpen, setFridgeOpen] = useState(false);
+  const [mealPlannerOpen, setMealPlannerOpen] = useState(false);
+
+  // Session ping for real-time user tracking
+  useEffect(() => {
+    let sessionId = sessionStorage.getItem("rasoi_session_id");
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      sessionStorage.setItem("rasoi_session_id", sessionId);
+    }
+    const id = sessionId;
+    actor?.pingOnline(id);
+    const interval = setInterval(() => {
+      actor?.pingOnline(id);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [actor]);
 
   const categoryLabels: Record<Category, string> = {
     All: t("category.all"),
@@ -242,11 +261,12 @@ function AppContent() {
                   </span>
                 </Button>
 
+                {/* Meal Planner Button */}
                 <Button
-                  data-ocid="admin.open_modal_button"
+                  data-ocid="meal_planner.open_modal_button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setAdminOpen(true)}
+                  onClick={() => setMealPlannerOpen(true)}
                   className="gap-1.5 text-sm font-medium"
                   style={{
                     background: "oklch(0.15 0.01 0)",
@@ -255,12 +275,12 @@ function AppContent() {
                     color: "oklch(0.55 0.18 142)",
                   }}
                 >
-                  <Sparkles
+                  <Calendar
                     className="w-3.5 h-3.5"
                     style={{ color: "oklch(0.55 0.18 142)" }}
                     aria-hidden="true"
                   />
-                  {t("header.manage_recipes")}
+                  <span className="hidden sm:inline">Meal Plan</span>
                 </Button>
               </div>
             </div>
@@ -444,8 +464,8 @@ function AppContent() {
       />
 
       <AdminPanel
-        open={adminOpen}
-        onClose={() => setAdminOpen(false)}
+        open={false}
+        onClose={() => {}}
         recipes={recipes}
         onAdd={handleAdd}
         onEdit={handleEdit}
@@ -455,6 +475,11 @@ function AppContent() {
       <ShoppingListModal
         open={shoppingOpen}
         onClose={() => setShoppingOpen(false)}
+      />
+
+      <MealPlanner
+        open={mealPlannerOpen}
+        onClose={() => setMealPlannerOpen(false)}
       />
 
       <FridgeCheckModal
@@ -471,6 +496,12 @@ function AppContent() {
 }
 
 export default function App() {
+  const isAdmin = window.location.pathname === "/admin";
+
+  if (isAdmin) {
+    return <AdminDashboard />;
+  }
+
   return (
     <LanguageProvider>
       <AppContent />

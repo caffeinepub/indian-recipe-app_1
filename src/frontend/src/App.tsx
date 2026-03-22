@@ -142,6 +142,17 @@ function AppContent() {
     return `We couldn't find any recipes matching "${searchQuery}". Try searching for a different dish or ingredient.`;
   };
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Secret admin trigger: typing /admin in search bar navigates to admin panel
+    if (value === "/admin") {
+      setSearchQuery("");
+      window.location.href = "/admin";
+      return;
+    }
+    setSearchQuery(value);
+  };
+
   return (
     <div className="min-h-screen" style={{ background: "oklch(0.08 0.005 0)" }}>
       <Toaster position="top-right" />
@@ -326,7 +337,7 @@ function AppContent() {
                 type="search"
                 placeholder={t("search.placeholder")}
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={handleSearchChange}
                 className="pl-11 pr-4 py-3 h-12 rounded-2xl text-sm shadow-lg"
                 style={{
                   background: "oklch(0.14 0.01 0)",

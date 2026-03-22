@@ -46,9 +46,13 @@ const emptyForm = (): Omit<Recipe, "id"> => ({
 
 export function AdminDashboard() {
   const { actor } = useActor();
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    () => localStorage.getItem(AUTH_KEY) === "true",
-  );
+
+  // Always require fresh login on every visit — clear any stored session on mount
+  useEffect(() => {
+    localStorage.removeItem(AUTH_KEY);
+  }, []);
+
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginId, setLoginId] = useState("");
   const [loginPass, setLoginPass] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -89,7 +93,6 @@ export function AdminDashboard() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (loginId === ADMIN_ID && loginPass === ADMIN_PASS) {
-      localStorage.setItem(AUTH_KEY, "true");
       setIsAuthenticated(true);
       setLoginError("");
     } else {
@@ -98,8 +101,9 @@ export function AdminDashboard() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem(AUTH_KEY);
     setIsAuthenticated(false);
+    setLoginId("");
+    setLoginPass("");
   };
 
   const openAdd = () => {
@@ -288,6 +292,17 @@ export function AdminDashboard() {
               Login Karen
             </button>
           </form>
+
+          {/* Back to app */}
+          <div className="mt-6 text-center">
+            <a
+              href="/"
+              className="text-xs transition-opacity hover:opacity-80"
+              style={{ color: "#a3a3a3" }}
+            >
+              ← Wapas App Par Jao
+            </a>
+          </div>
         </div>
       </div>
     );

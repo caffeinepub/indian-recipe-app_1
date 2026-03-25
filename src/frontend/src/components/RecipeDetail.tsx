@@ -1,3 +1,4 @@
+import { RatingSection } from "@/components/RatingSection";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -11,8 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/context/LanguageContext";
 import { RECIPE_EXTRAS } from "@/data/recipeExtras";
 import type { Recipe } from "@/data/recipes";
-import { useReviews } from "@/hooks/useReviews";
 import { useShoppingList } from "@/hooks/useShoppingList";
+import { toHindi, toHindiList } from "@/utils/hindiConverter";
 import { toHinglish, toHinglishList } from "@/utils/hinglishConverter";
 import {
   ChefHat,
@@ -25,7 +26,6 @@ import {
   Printer,
   Share2,
   ShoppingCart,
-  Star,
   Users,
   X,
 } from "lucide-react";
@@ -95,204 +95,6 @@ const SpeechRecognitionAPI: SpeechRecognitionConstructor | undefined = w
   : undefined;
 
 const isSpeechSupported = !!SpeechRecognitionAPI;
-
-// ─── Star Input ───────────────────────────────────────────────────────────────
-function StarInput({
-  value,
-  onChange,
-}: { value: number; onChange: (v: number) => void }) {
-  const [hover, setHover] = useState(0);
-  return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          onClick={() => onChange(star)}
-          onMouseEnter={() => setHover(star)}
-          onMouseLeave={() => setHover(0)}
-          className="transition-transform hover:scale-110 active:scale-95"
-          aria-label={`Rate ${star} stars`}
-        >
-          <Star
-            className="w-6 h-6"
-            fill={(hover || value) >= star ? "oklch(0.72 0.18 55)" : "none"}
-            stroke={
-              (hover || value) >= star
-                ? "oklch(0.72 0.18 55)"
-                : "oklch(0.40 0.01 0)"
-            }
-          />
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ─── Star Display ─────────────────────────────────────────────────────────────
-function StarDisplay({ rating, size = 4 }: { rating: number; size?: number }) {
-  return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <Star
-          key={star}
-          className={`w-${size} h-${size}`}
-          fill={star <= Math.round(rating) ? "oklch(0.72 0.18 55)" : "none"}
-          stroke={
-            star <= Math.round(rating)
-              ? "oklch(0.72 0.18 55)"
-              : "oklch(0.35 0.01 0)"
-          }
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── Reviews Section ──────────────────────────────────────────────────────────
-function ReviewsSection({ recipeId }: { recipeId: number }) {
-  const { reviews, addReview, avgRating, count } = useReviews(recipeId);
-  const [userRating, setUserRating] = useState(0);
-  const [comment, setComment] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-
-  const handleSubmit = () => {
-    if (userRating === 0) {
-      toast.error("Pehle stars do!");
-      return;
-    }
-    addReview(userRating, comment);
-    setUserRating(0);
-    setComment("");
-    setSubmitted(true);
-    toast.success("Aapka review add ho gaya! ⭐");
-    setTimeout(() => setSubmitted(false), 2000);
-  };
-
-  return (
-    <div className="mt-6">
-      <h3
-        className="font-display font-semibold text-lg mb-3"
-        style={{ color: "oklch(0.90 0.01 0)" }}
-      >
-        ⭐ Ratings & Reviews
-      </h3>
-
-      {/* Average */}
-      {avgRating !== null && (
-        <div
-          className="flex items-center gap-4 p-4 rounded-2xl mb-4"
-          style={{
-            background: "oklch(0.15 0.01 0)",
-            border: "1px solid oklch(0.22 0.01 0)",
-          }}
-        >
-          <div className="text-center">
-            <p
-              className="text-4xl font-bold font-display"
-              style={{ color: "oklch(0.72 0.18 55)" }}
-            >
-              {avgRating.toFixed(1)}
-            </p>
-            <p
-              className="text-xs mt-0.5"
-              style={{ color: "oklch(0.50 0.01 0)" }}
-            >
-              {count} review{count !== 1 ? "s" : ""}
-            </p>
-          </div>
-          <div>
-            <StarDisplay rating={avgRating} size={5} />
-          </div>
-        </div>
-      )}
-
-      {/* Add Review */}
-      <div
-        className="p-4 rounded-2xl mb-4"
-        style={{
-          background: "oklch(0.13 0.005 0)",
-          border: "1px solid oklch(0.20 0.01 0)",
-        }}
-      >
-        <p
-          className="text-sm font-semibold mb-3"
-          style={{ color: "oklch(0.75 0.01 0)" }}
-        >
-          Apna review do:
-        </p>
-        <StarInput value={userRating} onChange={setUserRating} />
-        <Textarea
-          data-ocid="recipe.review.textarea"
-          placeholder="Kuch likho (optional)..."
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          className="mt-3 text-sm resize-none rounded-xl"
-          rows={2}
-          style={{
-            background: "oklch(0.17 0.01 0)",
-            border: "1px solid oklch(0.26 0.01 0)",
-            color: "oklch(0.85 0.01 0)",
-          }}
-        />
-        <button
-          type="button"
-          data-ocid="recipe.review.submit_button"
-          onClick={handleSubmit}
-          disabled={submitted}
-          className="mt-3 px-5 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
-          style={{
-            background: submitted
-              ? "oklch(0.35 0.10 142)"
-              : "oklch(0.55 0.18 142)",
-            color: "oklch(0.08 0.005 0)",
-          }}
-        >
-          {submitted ? "✓ Dhanywad!" : "Review Submit Karo"}
-        </button>
-      </div>
-
-      {/* Past Reviews */}
-      {reviews.length > 0 && (
-        <div className="space-y-2">
-          {reviews.map((r) => (
-            <div
-              key={r.timestamp}
-              className="p-3 rounded-xl"
-              style={{
-                background: "oklch(0.13 0.005 0)",
-                border: "1px solid oklch(0.20 0.01 0)",
-              }}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <StarDisplay rating={r.rating} size={4} />
-                <span
-                  className="text-xs"
-                  style={{ color: "oklch(0.40 0.01 0)" }}
-                >
-                  {new Date(r.timestamp).toLocaleDateString("en-IN", {
-                    day: "numeric",
-                    month: "short",
-                    year: "2-digit",
-                  })}
-                </span>
-              </div>
-              {r.comment && (
-                <p
-                  className="text-sm mt-1"
-                  style={{ color: "oklch(0.72 0.01 0)" }}
-                >
-                  {r.comment}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
   const { t, language } = useLanguage();
   const { addToList } = useShoppingList();
@@ -339,17 +141,23 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
   const displayIngredients =
     language === "hinglish"
       ? toHinglishList(scaledIngredients)
-      : scaledIngredients;
+      : language === "hindi"
+        ? toHindiList(scaledIngredients)
+        : scaledIngredients;
 
   const displayInstructions =
     language === "hinglish" && recipe
       ? toHinglishList(recipe.instructions)
-      : (recipe?.instructions ?? []);
+      : language === "hindi" && recipe
+        ? toHindiList(recipe.instructions)
+        : (recipe?.instructions ?? []);
 
   const displayDescription =
     language === "hinglish" && recipe
       ? toHinglish(recipe.description)
-      : (recipe?.description ?? "");
+      : language === "hindi" && recipe
+        ? toHindi(recipe.description)
+        : (recipe?.description ?? "");
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional
   useEffect(() => {
@@ -937,7 +745,9 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
                     className="font-display font-semibold text-lg mb-3"
                     style={{ color: "oklch(0.90 0.01 0)" }}
                   >
-                    Chef ke Secret Tips 🍴
+                    {language === "hindi"
+                      ? "शेफ के गुप्त टिप्स 🍴"
+                      : "Chef ke Secret Tips 🍴"}
                   </h3>
                   <div className="space-y-2.5">
                     {extras.chefTips.map((tip, i) => (
@@ -974,7 +784,7 @@ export function RecipeDetail({ recipe, onClose }: RecipeDetailProps) {
               )}
 
               {/* Reviews */}
-              <ReviewsSection recipeId={recipe.id} />
+              <RatingSection recipeId={recipe.id} />
             </ScrollArea>
           </>
         )}

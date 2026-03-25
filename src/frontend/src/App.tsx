@@ -1,17 +1,19 @@
 import type { RecipeInput } from "@/backend";
-import { AdBanner } from "@/components/AdBanner";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { AdminPanel } from "@/components/AdminPanel";
 import { FridgeCheckModal } from "@/components/FridgeCheckModal";
+import { LegalModal } from "@/components/LegalModal";
 import { MealPlanner } from "@/components/MealPlanner";
 import { RecipeCard } from "@/components/RecipeCard";
 import { RecipeDetail } from "@/components/RecipeDetail";
 import { ShoppingListModal } from "@/components/ShoppingListModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster } from "@/components/ui/sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LanguageProvider, useLanguage } from "@/context/LanguageContext";
+import { INTERNATIONAL_RECIPES } from "@/data/internationalRecipes";
 import {
   CATEGORIES,
   CATEGORY_ICONS,
@@ -37,20 +39,64 @@ const LANG_LABELS: { code: Language; label: string }[] = [
   { code: "hinglish", label: "HE" },
 ];
 
+function RecipeSkeletonGrid() {
+  return (
+    <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div
+          // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton list
+          key={i}
+          className="rounded-2xl overflow-hidden"
+          style={{
+            background: "oklch(0.13 0.008 0)",
+            border: "1px solid oklch(0.20 0.01 0)",
+          }}
+        >
+          <Skeleton
+            className="w-full h-44"
+            style={{ background: "oklch(0.18 0.01 0)" }}
+          />
+          <div className="p-3 space-y-2">
+            <Skeleton
+              className="h-4 w-3/4 rounded-lg"
+              style={{ background: "oklch(0.20 0.01 0)" }}
+            />
+            <Skeleton
+              className="h-3 w-1/2 rounded-lg"
+              style={{ background: "oklch(0.18 0.01 0)" }}
+            />
+            <div className="flex gap-2 pt-1">
+              <Skeleton
+                className="h-5 w-10 rounded-full"
+                style={{ background: "oklch(0.18 0.01 0)" }}
+              />
+              <Skeleton
+                className="h-5 w-14 rounded-full"
+                style={{ background: "oklch(0.18 0.01 0)" }}
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AppContent() {
   const { t, language, setLanguage } = useLanguage();
   const { actor, isFetching } = useActor();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [isLoadingRecipes, setIsLoadingRecipes] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category>("All");
+  const [activeCuisine, setActiveCuisine] = useState<
+    "indian" | "international"
+  >("indian");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
-  const [pendingRecipe, setPendingRecipe] = useState<Recipe | null>(null);
-  const [showAdBanner, setShowAdBanner] = useState(false);
   const [shoppingOpen, setShoppingOpen] = useState(false);
   const [fridgeOpen, setFridgeOpen] = useState(false);
   const [mealPlannerOpen, setMealPlannerOpen] = useState(false);
 
-  // Helper: map backend Recipe → frontend Recipe
   const mapBackendRecipe = (r: {
     id: bigint;
     name: string;
@@ -85,7 +131,6 @@ function AppContent() {
     videoUrl: r.videoUrl,
   });
 
-  // Helper: map frontend Recipe → backend RecipeInput
   const toRecipeInput = (r: Omit<Recipe, "id">): RecipeInput => ({
     name: r.name,
     category: r.category,
@@ -103,29 +148,57 @@ function AppContent() {
     videoUrl: r.videoUrl,
   });
 
-  // Load recipes from backend on mount
   // biome-ignore lint/correctness/useExhaustiveDependencies: toRecipeInput and mapBackendRecipe are stable
   useEffect(() => {
     if (!actor || isFetching) return;
     const loadRecipes = async () => {
+      const intlLookup = new Map<
+        string,
+        { cuisineType: "indian" | "international"; cuisineOrigin?: string }
+      >();
+      for (const r of INTERNATIONAL_RECIPES) {
+        intlLookup.set(r.name, {
+          cuisineType: "international",
+          cuisineOrigin: r.cuisineOrigin,
+        });
+      }
+
+      const enrichRecipe = (r: Recipe): Recipe => {
+        const intlInfo = intlLookup.get(r.name);
+        if (intlInfo) return { ...r, ...intlInfo };
+        return { ...r, cuisineType: "indian" as const };
+      };
+
       try {
-        const seeded = await actor.isSeeded();
-        if (!seeded) {
-          const seedData: RecipeInput[] = INITIAL_RECIPES.map(toRecipeInput);
+        const allRecipes = [...INITIAL_RECIPES, ...INTERNATIONAL_RECIPES];
+        const expectedCount = allRecipes.length;
+        const backendCount = Number(await actor.getRecipeCount());
+        if (backendCount === 0) {
+          const seedData: RecipeInput[] = allRecipes.map(toRecipeInput);
           await actor.seedRecipes(seedData);
+        } else if (backendCount < expectedCount) {
+          // New recipes added locally -- force reseed with full list
+          const seedData: RecipeInput[] = allRecipes.map(toRecipeInput);
+          await actor.forceReseed(seedData);
         }
         const backendRecipes = await actor.getRecipes();
-        setRecipes(backendRecipes.map(mapBackendRecipe));
+        setRecipes(backendRecipes.map(mapBackendRecipe).map(enrichRecipe));
       } catch (err) {
         console.error("Failed to load recipes from backend:", err);
-        setRecipes(INITIAL_RECIPES);
+        setRecipes([
+          ...INITIAL_RECIPES.map((r) => ({
+            ...r,
+            cuisineType: "indian" as const,
+          })),
+          ...INTERNATIONAL_RECIPES,
+        ]);
       } finally {
+        setIsLoadingRecipes(false);
       }
     };
     loadRecipes();
   }, [actor, isFetching]);
 
-  // Session ping for real-time user tracking
   useEffect(() => {
     if (!actor) return;
     let sessionId = sessionStorage.getItem("rasoi_session_id");
@@ -154,6 +227,11 @@ function AppContent() {
   const filteredRecipes = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     return recipes.filter((r) => {
+      const matchCuisine =
+        activeCuisine === "indian"
+          ? !r.cuisineType || r.cuisineType === "indian"
+          : r.cuisineType === "international";
+      if (!matchCuisine) return false;
       const matchCategory =
         activeCategory === "All" || r.category === activeCategory;
       if (!q) return matchCategory;
@@ -164,17 +242,10 @@ function AppContent() {
       const matchDesc = r.description.toLowerCase().includes(q);
       return matchCategory && (matchName || matchIngredient || matchDesc);
     });
-  }, [recipes, searchQuery, activeCategory]);
+  }, [recipes, searchQuery, activeCategory, activeCuisine]);
 
   const handleRecipeClick = (recipe: Recipe) => {
-    setPendingRecipe(recipe);
-    setShowAdBanner(true);
-  };
-
-  const handleAdBannerClose = () => {
-    setShowAdBanner(false);
-    setSelectedRecipe(pendingRecipe);
-    setPendingRecipe(null);
+    setSelectedRecipe(recipe);
   };
 
   const handleAdd = async (recipe: Omit<Recipe, "id">) => {
@@ -244,7 +315,6 @@ function AppContent() {
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // Secret admin trigger: typing /admin in search bar navigates to admin panel
     if (value === "/admin") {
       setSearchQuery("");
       window.location.href = "/admin";
@@ -253,18 +323,16 @@ function AppContent() {
     setSearchQuery(value);
   };
 
+  const showSkeleton = isLoadingRecipes && recipes.length === 0;
+
   return (
     <div className="min-h-screen" style={{ background: "oklch(0.08 0.005 0)" }}>
       <Toaster position="top-right" />
-
-      {/* ─── Ad Banner Overlay ─── */}
-      {showAdBanner && <AdBanner onClose={handleAdBannerClose} />}
 
       {/* ─── Header ─── */}
       <header className="relative overflow-hidden">
         <div className="gradient-hero spice-pattern">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-16">
-            {/* Top bar */}
             <div className="flex items-center justify-between mb-8 gap-3 flex-wrap">
               <div className="flex items-center gap-3">
                 <div
@@ -290,7 +358,6 @@ function AppContent() {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Language Selector */}
                 <div
                   data-ocid="language.toggle"
                   className="flex items-center rounded-xl overflow-hidden"
@@ -324,7 +391,6 @@ function AppContent() {
                   ))}
                 </div>
 
-                {/* Fridge Check Button */}
                 <Button
                   data-ocid="fridge.open_modal_button"
                   variant="outline"
@@ -347,7 +413,6 @@ function AppContent() {
                   <span className="hidden sm:inline">{t("fridge.button")}</span>
                 </Button>
 
-                {/* Shopping List Button */}
                 <Button
                   data-ocid="shopping.open_modal_button"
                   variant="outline"
@@ -372,7 +437,6 @@ function AppContent() {
                   </span>
                 </Button>
 
-                {/* Meal Planner Button */}
                 <Button
                   data-ocid="meal_planner.open_modal_button"
                   variant="outline"
@@ -396,7 +460,6 @@ function AppContent() {
               </div>
             </div>
 
-            {/* Hero text */}
             <div className="text-center max-w-2xl mx-auto mb-8">
               <h1
                 className="font-display text-4xl sm:text-5xl md:text-6xl font-bold leading-tight mb-3"
@@ -425,7 +488,6 @@ function AppContent() {
               </p>
             </div>
 
-            {/* Search */}
             <div className="max-w-xl mx-auto relative">
               <Search
                 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4"
@@ -449,6 +511,68 @@ function AppContent() {
           </div>
         </div>
       </header>
+
+      {/* ─── Indian / Foran Toggle ─── */}
+      <div
+        className="border-b"
+        style={{
+          background: "oklch(0.09 0.005 0)",
+          borderColor: "oklch(0.20 0.01 0)",
+        }}
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex justify-center gap-3">
+          <button
+            type="button"
+            data-ocid="cuisine.indian.toggle"
+            onClick={() => {
+              setActiveCuisine("indian");
+              setActiveCategory("All");
+            }}
+            className="rounded-full px-6 py-2 font-bold text-sm transition-all"
+            style={{
+              background:
+                activeCuisine === "indian"
+                  ? "oklch(0.55 0.18 142)"
+                  : "oklch(0.15 0.01 0)",
+              color:
+                activeCuisine === "indian"
+                  ? "oklch(0.08 0.005 0)"
+                  : "oklch(0.65 0.01 0)",
+              border:
+                activeCuisine === "indian"
+                  ? "2px solid oklch(0.55 0.18 142)"
+                  : "2px solid oklch(0.28 0.02 0)",
+            }}
+          >
+            🇮🇳 Indian
+          </button>
+          <button
+            type="button"
+            data-ocid="cuisine.foran.toggle"
+            onClick={() => {
+              setActiveCuisine("international");
+              setActiveCategory("All");
+            }}
+            className="rounded-full px-6 py-2 font-bold text-sm transition-all"
+            style={{
+              background:
+                activeCuisine === "international"
+                  ? "oklch(0.50 0.20 260)"
+                  : "oklch(0.15 0.01 0)",
+              color:
+                activeCuisine === "international"
+                  ? "oklch(0.98 0.005 0)"
+                  : "oklch(0.65 0.01 0)",
+              border:
+                activeCuisine === "international"
+                  ? "2px solid oklch(0.50 0.20 260)"
+                  : "2px solid oklch(0.28 0.02 0)",
+            }}
+          >
+            ✈️ Foran
+          </button>
+        </div>
+      </div>
 
       {/* ─── Category Tabs ─── */}
       <div
@@ -493,17 +617,27 @@ function AppContent() {
 
       {/* ─── Main content ─── */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        {/* Recipe count */}
         <div className="flex items-center justify-between mb-6">
           <p
             className="text-sm font-medium"
             style={{ color: "oklch(0.50 0.01 0)" }}
           >
-            {recipeCountText}
+            {showSkeleton ? (
+              <Skeleton
+                className="h-4 w-32 rounded-lg"
+                style={{ background: "oklch(0.18 0.01 0)" }}
+              />
+            ) : (
+              recipeCountText
+            )}
           </p>
         </div>
 
-        {filteredRecipes.length === 0 ? (
+        {showSkeleton ? (
+          <div data-ocid="recipes.loading_state">
+            <RecipeSkeletonGrid />
+          </div>
+        ) : filteredRecipes.length === 0 ? (
           <div
             data-ocid="recipes.empty_state"
             className="flex flex-col items-center justify-center py-20 text-center"
@@ -564,8 +698,9 @@ function AppContent() {
         }}
       >
         <p className="text-sm" style={{ color: "oklch(0.45 0.01 0)" }}>
-          © {new Date().getFullYear()} Rasoi — Indian Recipes
+          © {new Date().getFullYear()} Kitchen — Indian Recipes
         </p>
+        <LegalModal />
       </footer>
 
       {/* ─── Modals ─── */}

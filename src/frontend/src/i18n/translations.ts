@@ -91,7 +91,7 @@ export type TranslationKey =
 type Translations = Record<TranslationKey, string>;
 
 const english: Translations = {
-  "app.title": "Rasoi",
+  "app.title": "Kitchen",
   "app.tagline": "Explore the Flavors of India",
   "app.tagline2":
     "From crispy dosas to fragrant biryanis — discover the rich tapestry of Indian cuisine",
@@ -183,7 +183,7 @@ const english: Translations = {
 };
 
 const hindi: Translations = {
-  "app.title": "रसोई",
+  "app.title": "Kitchen",
   "app.tagline": "भारत के स्वादों की सैर करें",
   "app.tagline2": "कुरकुरे डोसे से सुगंधित बिरयानी तक — भारतीय खाने की विविधता खोजें",
   "search.placeholder": "रेसिपी या सामग्री खोजें...",
@@ -272,7 +272,7 @@ const hindi: Translations = {
 };
 
 const hinglish: Translations = {
-  "app.title": "Rasoi",
+  "app.title": "Kitchen",
   "app.tagline": "India ke Zaikon ka Safar",
   "app.tagline2":
     "Crispy dose se lekar fragrant biryani tak — Indian khane ki duniya explore karo",

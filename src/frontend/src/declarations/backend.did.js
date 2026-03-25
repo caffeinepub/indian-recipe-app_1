@@ -30,6 +30,14 @@ export const UserRole = IDL.Variant({
   'guest' : IDL.Null,
 });
 export const UserProfile = IDL.Record({ 'name' : IDL.Text });
+export const RatingComment = IDL.Record({
+  'id' : IDL.Nat,
+  'recipeId' : IDL.Nat,
+  'authorName' : IDL.Text,
+  'comment' : IDL.Text,
+  'stars' : IDL.Nat,
+  'timestamp' : IDL.Int,
+});
 export const Recipe = IDL.Record({
   'id' : IDL.Nat,
   'owner' : IDL.Principal,
@@ -58,6 +66,7 @@ export const idlService = IDL.Service({
   'getActiveUsers' : IDL.Func([], [IDL.Nat], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getRatings' : IDL.Func([IDL.Nat], [IDL.Vec(RatingComment)], ['query']),
   'getRecipes' : IDL.Func([], [IDL.Vec(Recipe)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
@@ -66,9 +75,16 @@ export const idlService = IDL.Service({
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'isSeeded' : IDL.Func([], [IDL.Bool], ['query']),
+  'getRecipeCount' : IDL.Func([], [IDL.Nat], ['query']),
+  'forceReseed' : IDL.Func([IDL.Vec(RecipeInput)], [], []),
   'pingUser' : IDL.Func([SessionId], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'seedRecipes' : IDL.Func([IDL.Vec(RecipeInput)], [], []),
+  'submitRating' : IDL.Func(
+      [IDL.Nat, IDL.Nat, IDL.Text, IDL.Text],
+      [IDL.Nat],
+      [],
+    ),
   'updateRecipe' : IDL.Func([IDL.Nat, RecipeInput], [IDL.Bool], []),
 });
 
@@ -97,6 +113,14 @@ export const idlFactory = ({ IDL }) => {
     'guest' : IDL.Null,
   });
   const UserProfile = IDL.Record({ 'name' : IDL.Text });
+  const RatingComment = IDL.Record({
+    'id' : IDL.Nat,
+    'recipeId' : IDL.Nat,
+    'authorName' : IDL.Text,
+    'comment' : IDL.Text,
+    'stars' : IDL.Nat,
+    'timestamp' : IDL.Int,
+  });
   const Recipe = IDL.Record({
     'id' : IDL.Nat,
     'owner' : IDL.Principal,
@@ -125,6 +149,7 @@ export const idlFactory = ({ IDL }) => {
     'getActiveUsers' : IDL.Func([], [IDL.Nat], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getRatings' : IDL.Func([IDL.Nat], [IDL.Vec(RatingComment)], ['query']),
     'getRecipes' : IDL.Func([], [IDL.Vec(Recipe)], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
@@ -133,9 +158,16 @@ export const idlFactory = ({ IDL }) => {
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'isSeeded' : IDL.Func([], [IDL.Bool], ['query']),
+    'getRecipeCount' : IDL.Func([], [IDL.Nat], ['query']),
+    'forceReseed' : IDL.Func([IDL.Vec(RecipeInput)], [], []),
     'pingUser' : IDL.Func([SessionId], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'seedRecipes' : IDL.Func([IDL.Vec(RecipeInput)], [], []),
+    'submitRating' : IDL.Func(
+        [IDL.Nat, IDL.Nat, IDL.Text, IDL.Text],
+        [IDL.Nat],
+        [],
+      ),
     'updateRecipe' : IDL.Func([IDL.Nat, RecipeInput], [IDL.Bool], []),
   });
 };

@@ -45,6 +45,14 @@ export interface Recipe {
 export interface UserProfile {
     name: string;
 }
+export interface RatingComment {
+    id: bigint;
+    recipeId: bigint;
+    authorName: string;
+    comment: string;
+    stars: bigint;
+    timestamp: bigint;
+}
 export enum UserRole {
     admin = "admin",
     user = "user",
@@ -61,10 +69,13 @@ export interface backendInterface {
     getActiveUsers(): Promise<bigint>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getRatings(recipeId: bigint): Promise<Array<RatingComment>>;
     getRecipes(): Promise<Array<Recipe>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     isSeeded(): Promise<boolean>;
+    getRecipeCount(): Promise<bigint>;
+    forceReseed(newRecipes: Array<RecipeInput>): Promise<void>;
     /**
      * / Updates timestamp to current time
      * / No authorization required - allows tracking of all visitors including guests
@@ -72,5 +83,6 @@ export interface backendInterface {
     pingUser(sessionId: SessionId): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     seedRecipes(seedRecipes: Array<RecipeInput>): Promise<void>;
+    submitRating(recipeId: bigint, stars: bigint, comment: string, authorName: string): Promise<bigint>;
     updateRecipe(id: bigint, input: RecipeInput): Promise<boolean>;
 }

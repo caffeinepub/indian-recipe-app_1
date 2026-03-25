@@ -127,6 +127,14 @@ export interface Recipe {
 export interface UserProfile {
     name: string;
 }
+export interface RatingComment {
+    id: bigint;
+    recipeId: bigint;
+    authorName: string;
+    comment: string;
+    stars: bigint;
+    timestamp: bigint;
+}
 export enum UserRole {
     admin = "admin",
     user = "user",
@@ -144,10 +152,13 @@ export interface backendInterface {
     getActiveUsers(): Promise<bigint>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getRatings(recipeId: bigint): Promise<Array<RatingComment>>;
     getRecipes(): Promise<Array<Recipe>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     isSeeded(): Promise<boolean>;
+    getRecipeCount(): Promise<bigint>;
+    forceReseed(newRecipes: Array<RecipeInput>): Promise<void>;
     /**
      * / Updates timestamp to current time
      * / No authorization required - allows tracking of all visitors including guests
@@ -155,6 +166,7 @@ export interface backendInterface {
     pingUser(sessionId: SessionId): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     seedRecipes(seedRecipes: Array<RecipeInput>): Promise<void>;
+    submitRating(recipeId: bigint, stars: bigint, comment: string, authorName: string): Promise<bigint>;
     updateRecipe(id: bigint, input: RecipeInput): Promise<boolean>;
 }
 import type { Recipe as _Recipe, RecipeInput as _RecipeInput, UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
@@ -258,6 +270,20 @@ export class Backend implements backendInterface {
             return from_candid_UserRole_n6(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getRatings(arg0: bigint): Promise<Array<RatingComment>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getRatings(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getRatings(arg0);
+            return result;
+        }
+    }
     async getRecipes(): Promise<Array<Recipe>> {
         if (this.processError) {
             try {
@@ -297,6 +323,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.isCallerAdmin();
+            return result;
+        }
+    }
+    async getRecipeCount(): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getRecipeCount();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getRecipeCount();
+            return result;
+        }
+    }
+    async forceReseed(arg0: Array<RecipeInput>): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.forceReseed(to_candid_vec_n14(this._uploadFile, this._downloadFile, arg0));
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.forceReseed(to_candid_vec_n14(this._uploadFile, this._downloadFile, arg0));
             return result;
         }
     }
@@ -353,6 +407,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.seedRecipes(to_candid_vec_n14(this._uploadFile, this._downloadFile, arg0));
+            return result;
+        }
+    }
+    async submitRating(arg0: bigint, arg1: bigint, arg2: string, arg3: string): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.submitRating(arg0, arg1, arg2, arg3);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.submitRating(arg0, arg1, arg2, arg3);
             return result;
         }
     }

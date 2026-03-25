@@ -10,6 +10,14 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface RatingComment {
+  'id' : bigint,
+  'recipeId' : bigint,
+  'authorName' : string,
+  'comment' : string,
+  'stars' : bigint,
+  'timestamp' : bigint,
+}
 export interface Recipe {
   'id' : bigint,
   'owner' : Principal,
@@ -61,10 +69,13 @@ export interface _SERVICE {
   'getActiveUsers' : ActorMethod<[], bigint>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getRatings' : ActorMethod<[bigint], Array<RatingComment>>,
   'getRecipes' : ActorMethod<[], Array<Recipe>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isSeeded' : ActorMethod<[], boolean>,
+  'getRecipeCount' : ActorMethod<[], bigint>,
+  'forceReseed' : ActorMethod<[Array<RecipeInput>], undefined>,
   /**
    * / Updates timestamp to current time
    * / No authorization required - allows tracking of all visitors including guests
@@ -72,6 +83,7 @@ export interface _SERVICE {
   'pingUser' : ActorMethod<[SessionId], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'seedRecipes' : ActorMethod<[Array<RecipeInput>], undefined>,
+  'submitRating' : ActorMethod<[bigint, bigint, string, string], bigint>,
   'updateRecipe' : ActorMethod<[bigint, RecipeInput], boolean>,
 }
 export declare const idlService: IDL.ServiceClass;
